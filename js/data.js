@@ -3,13 +3,7 @@
    ---------------------------------------------------------------------
    Notation:  _{...} = subscript   e.g. C_{n}H_{2n+1}OH  ->  CₙH₂ₙ₊₁OH
               _3     = single-character subscript
-   LOCKED CORRECTIONS – DO NOT REVERT:
-     • Alcohol general formula         C_{n}H_{2n+1}OH
-     • Carboxylic acid general formula C_{n}H_{2n+1}COOH
-     • Ketone functional group         R–C(=O)–R
-     • Aldehyde general formula        C_{n}H_{2n+1}CHO
-     • Ketone general formula          C_{n}H_{2n+1}COC_{m}H_{2m+1}
-   `extra: true` marks the 3 series added to reach 14 (awaiting approval).
+   CONTENT SOURCE: the user's SK025 table (14 series). Keep it in sync with that table.
    Each series needs at least 2 examples (used for repeated sets).
    ===================================================================== */
 (function (root) {
@@ -22,37 +16,36 @@
     { id: 'name', label: 'Name',             short: 'NAME' }
   ];
 
+  /* Order and content follow the user's SK025 table (Nov 2026). */
   var SERIES = [
-    { id: 'alkane',     name: 'Alkane',          fg: 'C–C',        gf: 'C_{n}H_{2n+2}',
+    { id: 'alkane',     name: 'Alkane',          fg: 'C–C',          gf: 'C_{n}H_{2n+2}',
       ex: [['CH_3CH_3', 'ethane'], ['CH_3CH_2CH_3', 'propane']] },
-    { id: 'alkene',     name: 'Alkene',          fg: 'C=C',        gf: 'C_{n}H_{2n}',
+    { id: 'alkene',     name: 'Alkene',          fg: 'C=C',          gf: 'C_{n}H_{2n}',
       ex: [['CH_2=CH_2', 'ethene'], ['CH_3CH=CH_2', 'propene']] },
-    { id: 'alkyne',     name: 'Alkyne',          fg: 'C≡C',        gf: 'C_{n}H_{2n−2}',
+    { id: 'alkyne',     name: 'Alkyne',          fg: 'C≡C',          gf: 'C_{n}H_{2n−2}',
       ex: [['HC≡CH', 'ethyne'], ['CH_3C≡CH', 'propyne']] },
-    { id: 'haloalkane', name: 'Haloalkane',      fg: 'C–X',        gf: 'C_{n}H_{2n+1}X',
-      ex: [['CH_3CH_2Cl', 'chloroethane'], ['CH_3CH_2Br', 'bromoethane']] },
-    { id: 'alcohol',    name: 'Alcohol',         fg: '–OH',        gf: 'C_{n}H_{2n+1}OH',
+    { id: 'alcohol',    name: 'Alcohol',         fg: '–OH',          gf: 'C_{n}H_{2n+1}OH',
       ex: [['CH_3CH_2OH', 'ethanol'], ['CH_3OH', 'methanol']] },
-    { id: 'aldehyde',   name: 'Aldehyde',        fg: '–CHO',       gf: 'C_{n}H_{2n+1}CHO',
-      ex: [['CH_3CHO', 'ethanal'], ['HCHO', 'methanal']] },
-    { id: 'ketone',     name: 'Ketone',          fg: 'R–C(=O)–R',  gf: 'C_{n}H_{2n+1}COC_{m}H_{2m+1}',
-      ex: [['CH_3COCH_3', 'propanone'], ['CH_3COCH_2CH_3', 'butanone']] },
-    { id: 'carboxylic', name: 'Carboxylic acid', fg: '–COOH',      gf: 'C_{n}H_{2n+1}COOH',
+    { id: 'carboxylic', name: 'Carboxylic acid', fg: '–COOH',        gf: 'C_{n}H_{2n+1}COOH',
       ex: [['CH_3COOH', 'ethanoic acid'], ['HCOOH', 'methanoic acid']] },
-    { id: 'ester',      name: 'Ester',           fg: '–COO–',      gf: 'C_{n}H_{2n}O_2',
+    { id: 'ester',      name: 'Ester',           fg: '–C(=O)–O–C',   gf: 'C_{n}H_{2n+1}COOC_{m}H_{2m+1}',
       ex: [['CH_3COOCH_2CH_3', 'ethyl ethanoate'], ['HCOOCH_3', 'methyl methanoate']] },
-    { id: 'amine',      name: 'Primary amine',   fg: '–NH_2',      gf: 'C_{n}H_{2n+3}N',
-      ex: [['CH_3CH_2NH_2', 'ethylamine'], ['CH_3NH_2', 'methylamine']] },
-    { id: 'amide',      name: 'Primary amide',   fg: '–CONH_2',    gf: 'C_{n}H_{2n+1}NO',
-      ex: [['CH_3CONH_2', 'ethanamide'], ['HCONH_2', 'methanamide']] },
-
-    /* ---- 3 extra series (placeholders – confirm against SK025 syllabus) ---- */
-    { id: 'ether',      name: 'Ether',           fg: 'R–O–R',      gf: 'C_{n}H_{2n+2}O', extra: true,
+    { id: 'haloalkane', name: 'Haloalkane',      fg: 'X (halogen)',  gf: 'C_{n}H_{2n+1}X',
+      ex: [['CH_3CH_2Cl', 'chloroethane'], ['CH_3CH_2Br', 'bromoethane']] },
+    { id: 'aldehyde',   name: 'Aldehyde',        fg: '–C(=O)–H',     gf: 'C_{n}H_{2n+1}COH',
+      ex: [['CH_3CHO', 'ethanal'], ['HCHO', 'methanal']] },
+    { id: 'ketone',     name: 'Ketone',          fg: 'C=O',          gf: 'C_{n}H_{2n+1}COC_{n}H_{2n+1}',
+      ex: [['CH_3COCH_3', 'propanone'], ['CH_3CH_2COCH_2CH_3', 'pentan-3-one']] },
+    { id: 'ether',      name: 'Ether',           fg: 'C–O–C',        gf: 'C_{n}H_{2n+2}O',
       ex: [['CH_3OCH_3', 'methoxymethane'], ['CH_3OCH_2CH_3', 'methoxyethane']] },
-    { id: 'nitrile',    name: 'Nitrile',         fg: '–C≡N',       gf: 'C_{n}H_{2n+1}CN', extra: true,
-      ex: [['CH_3CN', 'ethanenitrile'], ['CH_3CH_2CN', 'propanenitrile']] },
-    { id: 'acylchloride', name: 'Acyl chloride', fg: '–COCl',      gf: 'C_{n}H_{2n+1}COCl', extra: true,
-      ex: [['CH_3COCl', 'ethanoyl chloride'], ['CH_3CH_2COCl', 'propanoyl chloride']] }
+    { id: 'acylchloride', name: 'Acyl chloride', aka: 'acid chloride', fg: 'C(=O)–Cl', gf: 'C_{n}H_{2n+1}COCl',
+      ex: [['CH_3COCl', 'ethanoyl chloride'], ['CH_3CH_2COCl', 'propanoyl chloride']] },
+    { id: 'amide',      name: 'Amide',           fg: '–C(=O)–N',     gf: 'C_{n}H_{2n+1}CONH_2',
+      ex: [['CH_3CONH_2', 'ethanamide'], ['HCONH_2', 'methanamide']] },
+    { id: 'amine',      name: 'Amine',           fg: '–C–N–',        gf: 'C_{n}H_{2n+1}NH_2',
+      ex: [['CH_3CH_2NH_2', 'ethylamine'], ['CH_3NH_2', 'methylamine']] },
+    { id: 'nitrile',    name: 'Nitrile',         fg: '–C≡N',         gf: 'C_{n}H_{2n+1}CN',
+      ex: [['CH_3CN', 'ethanenitrile'], ['CH_3CH_2CN', 'propanenitrile']] }
   ];
 
   /* Convert notation to HTML with <sub>. */

@@ -171,6 +171,7 @@ sub { font-size: 0.68em; vertical-align: -0.28em; line-height: 0; }
 @media (min-width: 640px) { .notes-list { grid-template-columns: 1fr 1fr; } }
 .note { background: #fff; border-radius: 16px; padding: 12px 14px; box-shadow: 0 2px 0 #e2e8f0, 0 4px 12px rgba(15,23,42,.08); border-left: 6px solid var(--name); }
 .note h3 { margin: 0 0 8px; font-size: 18px; color: var(--name-dk); }
+.note h3 small { font-size: 14px; font-weight: 600; color: #64748b; }
 .note-row { display: grid; grid-template-columns: 118px 1fr; gap: 8px; padding: 5px 0; border-top: 1px solid #f1f5f9; font-size: 15px; align-items: baseline; }
 .note-row span:first-child { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--tc); }
 .note-row b { font-weight: 700; }

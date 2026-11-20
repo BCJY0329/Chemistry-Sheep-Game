@@ -131,9 +131,9 @@
   function renderNotes() {
     if (notesDone) return; notesDone = true;
     var list = $('#notes-list');
-    D.SERIES.forEach(function (s) {
+    D.SERIES.forEach(function (s, i) {
       var ex = s.ex.map(function (e) { return '<b>' + D.fmt(e[0]) + '</b> <span class="exname">(' + e[1] + ')</span>'; }).join('<br>');
-      list.appendChild(el('<div class="note"><h3>' + s.name + '</h3>' +
+      list.appendChild(el('<div class="note"><h3>' + (i + 1) + '. ' + s.name + (s.aka ? ' <small>/ ' + s.aka.charAt(0).toUpperCase() + s.aka.slice(1) + '</small>' : '') + '</h3>' +
         '<div class="note-row t-fg"><span>Functional group</span><b>' + D.fmt(s.fg) + '</b></div>' +
         '<div class="note-row t-gf"><span>General formula</span><b>' + D.fmt(s.gf) + '</b></div>' +
         '<div class="note-row t-ex"><span>Examples</span><div>' + ex + '</div></div></div>'));
