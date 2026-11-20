@@ -277,7 +277,7 @@
     var cls = 'tile t-' + t.card.type + (free ? ' free' : ' covered') + (ui.hintId === t.id ? ' hinted' : '');
     return '<div class="' + cls + '" data-id="' + t.id + '" style="left:' + (sl.x * lay.halfW) + 'px;top:' + (sl.y * lay.halfH) + 'px;width:' + w +
       'px;height:' + h + 'px;z-index:' + (sl.layer * 1000 + sl.y) + '">' +
-      '<div class="tile-top" style="font-size:' + fs.toFixed(1) + 'px">' + D.fmt(t.card.text) + '</div>' +
+      '<div class="tile-top" style="font-size:' + fs.toFixed(1) + 'px"><span class="ct">' + D.fmt(t.card.text) + '</span></div>' +
       '<div class="tile-bottom" style="font-size:' + lbl.toFixed(1) + 'px">' + SHORT_LABEL[t.card.type] + '</div>' +
       (free ? '' : '<span class="lock">🔒</span>') + '</div>';
   }

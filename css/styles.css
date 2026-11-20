@@ -15,7 +15,8 @@
 html, body { margin: 0; height: 100%; }
 body { font-family: var(--ui-font); background: #0f766e; color: #0f172a; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
 button { font-family: inherit; cursor: pointer; }
-sub { font-size: 0.68em; vertical-align: -0.28em; line-height: 0; }
+sub { font-size: 0.66em; vertical-align: -0.32em; line-height: 0; }
+.ct { display: inline-block; white-space: nowrap; line-height: 1.15; }
 
 .screen { display: none; min-height: 100vh; min-height: 100dvh; }
 .screen.active { display: flex; flex-direction: column; }
