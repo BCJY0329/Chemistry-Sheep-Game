@@ -272,9 +272,9 @@
   function tileHtml(t, free, lay) {
     var sl = t.slot, gap = Math.max(2, lay.halfW * 0.06);
     var w = lay.halfW * 2 - gap, h = lay.halfH * 2 - gap;
-    var len = D.visualLength(t.card.text);
-    var fs = Math.min(lay.halfH * 0.58, (w - 14) / (Math.max(len, 3) * 0.6));
-    var lbl = Math.max(7, Math.min(lay.halfH * 0.34, (w - 12) / (SHORT_LABEL[t.card.type].length * 0.62)));
+    // standard sizes for every card on the board; only text that does not fit is shrunk (fitText)
+    var fs = Math.min(lay.halfH * 0.5, 22);
+    var lbl = Math.max(7.5, Math.min(lay.halfH * 0.3, 12));
     var cls = 'tile t-' + t.card.type + (free ? ' free' : ' covered') + (ui.hintId === t.id ? ' hinted' : '');
     return '<div class="' + cls + '" data-id="' + t.id + '" style="left:' + (sl.x * lay.halfW) + 'px;top:' + (sl.y * lay.halfH) + 'px;width:' + w +
       'px;height:' + h + 'px;z-index:' + (sl.layer * 1000 + sl.y) + '">' +
@@ -311,12 +311,15 @@
 
   /* Shrink any text that would overflow its box, so long formulas are never cut off. */
   function fitText(nodes) {
-    var jobs = [];
-    nodes.forEach(function (n) { if (n.scrollWidth > n.clientWidth + 0.5 || n.scrollHeight > n.clientHeight + 1) jobs.push([n, n.clientWidth / n.scrollWidth, n.clientHeight / n.scrollHeight]); });
-    jobs.forEach(function (j) {
-      var cur = parseFloat(getComputedStyle(j[0]).fontSize);
-      j[0].style.fontSize = Math.max(6.5, cur * Math.min(j[1], j[2], 1) * 0.94).toFixed(1) + 'px';
-    });
+    for (var pass = 0; pass < 4; pass++) {
+      var jobs = [];
+      nodes.forEach(function (n) { if (n.scrollWidth > n.clientWidth + 0.5 || n.scrollHeight > n.clientHeight + 1) jobs.push([n, n.clientWidth / n.scrollWidth, n.clientHeight / n.scrollHeight]); });
+      if (!jobs.length) return;
+      jobs.forEach(function (j) {
+        var cur = parseFloat(getComputedStyle(j[0]).fontSize);
+        j[0].style.fontSize = Math.max(6.5, cur * Math.min(j[1], j[2], 1) * 0.94).toFixed(1) + 'px';
+      });
+    }
   }
 
   function renderTray() {
@@ -523,6 +526,11 @@
   });
 
   refreshMute();
+  // re-measure card text once the bundled font has loaded (sizes change slightly)
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { if (current === 'game' && G) { renderBoard(); renderTray(); } });
+    document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', function () { if (current === 'game' && G) { renderBoard(); renderTray(); } });
+  }
   // expose for debugging / automated tests
   window.ChemSheep = { start: startGame, state: function () { return G; }, show: show, elapsed: elapsed };
 })();

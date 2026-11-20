@@ -1,6 +1,6 @@
 /* Service worker: lets the installed app open and play with no internet.
    When you change any game file, bump VERSION so phones download the update. */
-var VERSION = 'chemsheep-v5';
+var VERSION = 'chemsheep-v6';
 var FILES = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/data.js', './js/engine.js', './js/deco.js', './js/ui.js',

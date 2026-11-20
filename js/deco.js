@@ -26,7 +26,7 @@
     tube: '<path d="M38 8 H62 M42 8 V80 Q42 92 50 92 Q58 92 58 80 V8" fill="none" stroke="currentColor" stroke-width="5"/><path d="M42 56 H58" stroke="currentColor" stroke-width="4"/>',
     arrow: '<path d="M10 50 H80 M64 34 L82 50 L64 66" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>',
     star: '<polygon points="50,8 61,38 92,38 67,57 76,88 50,70 24,88 33,57 8,38 39,38" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>',
-    text: function (t) { return '<text x="50" y="62" text-anchor="middle" font-size="34" font-family="Segoe Print, Comic Sans MS, cursive" fill="currentColor">' + t + '</text>'; },
+    text: function (t) { return '<text x="50" y="62" text-anchor="middle" font-size="34" font-family="Nunito, sans-serif" font-weight="700" fill="currentColor">' + t + '</text>'; },
     hex: '<polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="currentColor"/>',
     dot: '<circle cx="50" cy="50" r="46" fill="currentColor"/>'
   };
