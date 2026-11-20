@@ -156,11 +156,12 @@
       'and <b>cannot be picked</b> until every card on top of them is gone. Plan ahead!</p>' },
     { t: '🧺 The tray', h: '<p>Tapping a free card moves it to the tray at the bottom. The tray holds <b>7 cards</b>.</p>' +
       '<ul><li>A complete set of 4 clears automatically.</li><li>If the tray fills up with 7 cards and no set – <b>you lose</b>.</li></ul>' },
-    { t: '↩ Undo, 💡 Hint, 🔀 Shuffle', h: '<ul><li><b>Undo (3 per round):</b> tap a tray card twice, or press Undo, to send it back to its exact spot on the board.</li>' +
+    { t: '↩ Undo, 💡 Hint, 🔀 Shuffle', h: '<ul><li><b>Undo (unlimited):</b> tap a tray card twice, or press Undo, to send it back to its exact spot on the board. ' +
+      'Each undo adds <b>+20 seconds</b> to your time and takes away <b>10 points</b>.</li>' +
       '<li><b>Hint (3 per round):</b> highlights a good card to pick next.</li><li><b>Shuffle (1 per round):</b> re-deals the cards still on the board.</li></ul>' },
     { t: '🏆 Modes & time', h: '<ul><li><b>Easy:</b> 5 of the 14 series.</li><li><b>Medium:</b> 9 series – unlock by winning 3 Easy rounds.</li>' +
       '<li><b>Hard:</b> all 14 series – unlock by winning 3 Medium rounds.</li></ul><p>Your clear time and score are saved in Ranking. ' +
-      'Some rounds repeat a series with a different example – collect both sets!</p>' +
+      'Every series on a board is different.</p>' +
       '<div class="btns" style="margin-top:14px"><button class="btn btn-play" id="tut-practice">Try a practice round</button></div>' }
   ];
   var tutIdx = 0;
@@ -247,7 +248,7 @@
     ui.elapsed += performance.now() - ui.startTs; ui.running = false; clearInterval(ui.timer);
     updateTime();
   }
-  function elapsed() { return ui.elapsed + (ui.running ? performance.now() - ui.startTs : 0); }
+  function elapsed() { return ui.elapsed + (ui.running ? performance.now() - ui.startTs : 0) + (G ? G.timePenaltyMs : 0); }
   function updateTime() { $('#hud-time').textContent = fmtTime(elapsed()); }
   document.addEventListener('visibilitychange', function () {
     if (current !== 'game') return;
@@ -289,11 +290,11 @@
     $('#hud-sets').textContent = G.setsCleared + '/' + G.totalSets;
     $('#hud-streak').textContent = G.streak;
     $('#hud-tray').textContent = G.tray.length + '/' + E.TRAY_SIZE;
-    $('#cnt-undo').textContent = G.undosLeft;
+    $('#cnt-undo').textContent = G.cfg.undos < 0 ? '∞' : G.undosLeft;
     $('#cnt-hint').textContent = G.hintsLeft;
     $('#cnt-shuffle').textContent = G.shufflesLeft;
     var playing = G.status === 'playing';
-    $('#btn-undo').disabled = !playing || G.undosLeft <= 0 || !G.tray.length;
+    $('#btn-undo').disabled = !playing || !G.tray.length || (G.cfg.undos >= 0 && G.undosLeft <= 0);
     $('#btn-hint').disabled = !playing || G.hintsLeft <= 0;
     $('#btn-shuffle').disabled = !playing || G.shufflesLeft <= 0;
   }
@@ -400,7 +401,7 @@
     var id = +c.getAttribute('data-id');
     if (ui.pendingIds && ui.pendingIds.indexOf(id) >= 0) return;
     if (G.tray.indexOf(id) < 0) return;
-    if (G.undosLeft <= 0) { sfx.bad(); toast('No undos left this round'); return; }
+    if (G.cfg.undos >= 0 && G.undosLeft <= 0) { sfx.bad(); toast('No undos left this round'); return; }
     if (ui.armed === id) { doUndo(id); return; }
     flushPending();
     ui.armed = id; renderTray();
@@ -424,7 +425,9 @@
       fly(rect, back, G.tiles[id].card.type, G.tiles[id].card.text);
       back.classList.add('returning');
     }
-    toast('↩ Card returned · ' + G.undosLeft + ' undo' + (G.undosLeft === 1 ? '' : 's') + ' left');
+    updateTime(); bump('#hud-time');
+    floatScore('+20s  −' + res.scoreLost, $('#hud-time'));
+    toast('↩ Card returned · +20 s time' + (res.scoreLost ? ' · −' + res.scoreLost + ' points' : ''));
   }
 
   /* ---------- Hint & shuffle ---------- */
@@ -495,7 +498,7 @@
     }
     var grid = '<div class="result-grid"><div><small>Time</small><b>' + fmtTime(time) + '</b></div><div><small>Score</small><b>' + G.score + '</b></div>' +
       '<div><small>Sets</small><b>' + G.setsCleared + '/' + G.totalSets + '</b></div><div><small>Best streak</small><b>' + G.bestStreak + '</b></div>' +
-      '<div><small>Undos used</small><b>' + G.undosUsed + '/' + G.cfg.undos + '</b></div><div><small>Hints used</small><b>' + G.hintsUsed + '/' + G.cfg.hints + '</b></div></div>';
+      '<div><small>Undos used</small><b>' + G.undosUsed + (G.undosUsed ? ' (+' + G.undosUsed * 20 + 's)' : '') + '</b></div><div><small>Hints used</small><b>' + G.hintsUsed + '/' + G.cfg.hints + '</b></div></div>';
     if (won) {
       sfx.win();
       openModal('<div class="big-icon">🎉</div><h2>Board cleared!</h2>' + grid + extra, [

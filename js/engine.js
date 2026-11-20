@@ -16,12 +16,14 @@
   var TRAY_SIZE = 7;
 
   /* ---------- Mode settings (edit here to rebalance) ---------- */
+  /* Every series appears only once per board (no repeats). undos: -1 = unlimited. */
   var MODES = {
-    easy:     { id: 'easy',     label: 'Easy',     series: 5,  repeats: 5, layers: 2, maxHeld: 4, undos: 3, hints: 3, shuffles: 1 },
-    medium:   { id: 'medium',   label: 'Medium',   series: 9,  repeats: 5, layers: 3, maxHeld: 5, undos: 3, hints: 3, shuffles: 1 },
-    hard:     { id: 'hard',     label: 'Hard',     series: 14, repeats: 6, layers: 4, maxHeld: 6, undos: 3, hints: 3, shuffles: 1 },
-    practice: { id: 'practice', label: 'Practice', series: 2,  repeats: 0, layers: 2, maxHeld: 4, undos: 3, hints: 3, shuffles: 1 }
+    easy:     { id: 'easy',     label: 'Easy',     series: 5,  repeats: 0, layers: 3, maxHeld: 4, undos: -1, hints: 3, shuffles: 1 },
+    medium:   { id: 'medium',   label: 'Medium',   series: 9,  repeats: 0, layers: 4, maxHeld: 5, undos: -1, hints: 3, shuffles: 1 },
+    hard:     { id: 'hard',     label: 'Hard',     series: 14, repeats: 0, layers: 4, maxHeld: 6, undos: -1, hints: 3, shuffles: 1 },
+    practice: { id: 'practice', label: 'Practice', series: 2,  repeats: 0, layers: 2, maxHeld: 4, undos: -1, hints: 3, shuffles: 1 }
   };
+  var UNDO_TIME_PENALTY_MS = 20000, UNDO_SCORE_PENALTY = 10;
   var UNLOCK_WINS = 3;
   var SCORE_PER_SET = 100, STREAK_STEP = 25, STREAK_MAX = 100;
 
@@ -256,7 +258,7 @@
       gridW: layout.gridW, gridH: layout.gridH,
       tiles: tiles, coveredBy: coveredBy, tray: [], solutionOrder: order,
       seriesIds: chosen.map(function (s) { return s.id; }),
-      undosLeft: mode.undos, hintsLeft: mode.hints, shufflesLeft: mode.shuffles,
+      undosLeft: mode.undos, timePenaltyMs: 0, hintsLeft: mode.hints, shufflesLeft: mode.shuffles,
       undosUsed: 0, hintsUsed: 0, shufflesUsed: 0,
       score: 0, streak: 0, bestStreak: 0, setsCleared: 0, totalSets: instances.length, picks: 0,
       status: 'playing', rngState: Math.floor(rng() * 1e9)
@@ -318,16 +320,21 @@
     return res;
   }
 
-  /* Undo: send a tray card back to its exact original slot. */
+  /* Undo: send a tray card back to its exact original slot.
+     Unlimited, but each undo adds 20 s to the time and takes 10 points (score never drops below 0). */
   function undoTile(state, id) {
     if (state.status !== 'playing') return { ok: false, reason: 'over' };
-    if (state.undosLeft <= 0) return { ok: false, reason: 'noUndos' };
+    if (state.cfg.undos >= 0 && state.undosLeft <= 0) return { ok: false, reason: 'noUndos' };
     var idx = state.tray.indexOf(id);
     if (idx < 0) return { ok: false, reason: 'notInTray' };
     state.tray.splice(idx, 1);
     state.tiles[id].where = 'board';
-    state.undosLeft--; state.undosUsed++; state.streak = 0;
-    return { ok: true };
+    if (state.cfg.undos >= 0) state.undosLeft--;
+    state.undosUsed++; state.streak = 0;
+    var lost = Math.min(UNDO_SCORE_PENALTY, state.score);
+    state.score -= lost;
+    state.timePenaltyMs += UNDO_TIME_PENALTY_MS;
+    return { ok: true, scoreLost: lost, timeAdded: UNDO_TIME_PENALTY_MS };
   }
 
   /* Hint: best free tile to pick next (heuristic). */
@@ -400,7 +407,7 @@
   }
 
   var api = {
-    MODES: MODES, SHAPES: SHAPES, THEMES: THEMES, TYPES: TYPES, TRAY_SIZE: TRAY_SIZE, UNLOCK_WINS: UNLOCK_WINS,
+    MODES: MODES, UNDO_TIME_PENALTY_MS: UNDO_TIME_PENALTY_MS, UNDO_SCORE_PENALTY: UNDO_SCORE_PENALTY, SHAPES: SHAPES, THEMES: THEMES, TYPES: TYPES, TRAY_SIZE: TRAY_SIZE, UNLOCK_WINS: UNLOCK_WINS,
     rngFrom: rngFrom, buildLayout: buildLayout, computeCoveredBy: computeCoveredBy, removalOrder: removalOrder,
     assignCards: assignCards, overlap: overlap, overlapsTopStrip: overlapsTopStrip, cardKeys: cardKeys,
     newGame: newGame, isFree: isFree, pickTile: pickTile, undoTile: undoTile, findMatch: findMatch,

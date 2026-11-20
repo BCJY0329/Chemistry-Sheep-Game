@@ -21,7 +21,7 @@ A Sheep-a-Sheep style matching game. Collect the 4 cards of one homologous serie
 
 ## Where to change things
 - **Cards / series:** `js/data.js` (`_{...}` makes a subscript, e.g. `C_{n}H_{2n+1}OH`).
-- **Mode sizes, undos (3), hints (3), shuffles (1):** the `MODES` table at the top of `js/engine.js`.
+- **Mode sizes, hints (3), shuffles (1):** the `MODES` table at the top of `js/engine.js`. Undo is unlimited; its penalty (+20 s, −10 points) is `UNDO_TIME_PENALTY_MS` / `UNDO_SCORE_PENALTY` just below it.
 - **Board shapes** (Square, Diamond, Pyramid, Circle, Hexagon, Flask – one picked at random each round): add more in `SHAPES` in `js/engine.js`.
 - **New theme:** add its name to `THEMES` in `js/engine.js`, a `.theme-<name>` block in `css/styles.css`, and its doodles in `ART` in `js/deco.js`.
 

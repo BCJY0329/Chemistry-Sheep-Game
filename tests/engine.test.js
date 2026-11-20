@@ -25,7 +25,7 @@ D.SERIES.forEach(s => ok(s.ex.length >= 2, 'two examples ' + s.id));
 });
 
 // ---- 2. Board generation, layering, readability, solvability
-const expected = { easy: (5 + 5) * 4, medium: (9 + 5) * 4, hard: (14 + 6) * 4, practice: 8 };
+const expected = { easy: 5 * 4, medium: 9 * 4, hard: 14 * 4, practice: 8 };
 const sizes = {};
 for (const mode of Object.keys(expected)) for (const shape of Object.keys(E.SHAPES)) for (const cols of [5, 7, 13]) for (const aspect of [0.5, 1.4]) {
   for (let seed = 1; seed <= 40; seed++) {
@@ -39,6 +39,7 @@ for (const mode of Object.keys(expected)) for (const shape of Object.keys(E.SHAP
     g.tiles.forEach(t => { per[t.card.series] = per[t.card.series] || { fg: 0, gf: 0, ex: 0, name: 0 }; per[t.card.series][t.card.type]++; });
     Object.values(per).forEach(c => ok(c.fg === c.gf && c.gf === c.ex && c.ex === c.name, 'balanced types ' + tag));
     ok(Object.keys(per).length === E.MODES[mode].series, 'series count ' + tag);
+    Object.values(per).forEach(c => ok(c.fg === 1 && c.gf === 1 && c.ex === 1 && c.name === 1, 'no repeated series ' + tag));
     // geometry
     const sl = g.tiles.map(t => t.slot);
     for (let i = 0; i < sl.length; i++) for (let j = 0; j < sl.length; j++) {
@@ -85,17 +86,19 @@ console.log('max grid height (half rows):', sizes);
     }
   }
   ok(JSON.stringify(top.slot) === before, 'slot unchanged');
-  // limit
+  // unlimited undos with penalty
   const h = E.newGame({ mode: 'easy', seed: 9, cols: 5 });
   let used = 0;
-  for (let k = 0; k < 5; k++) {
+  h.score = 25;
+  for (let k = 0; k < 6; k++) {
     const f = h.tiles.find(t => E.isFree(h, t.id));
     E.pickTile(h, f.id);
-    if (h.tray.includes(f.id)) { const r = E.undoTile(h, f.id); if (r.ok) used++; else ok(r.reason === 'noUndos', '4th undo refused'); }
+    if (h.tray.includes(f.id) && h.status === 'playing') { const r = E.undoTile(h, f.id); ok(r.ok, 'undo always allowed'); used++; }
   }
-  ok(used === 3 && h.undosLeft === 0, 'exactly 3 undos ' + used);
+  ok(used === 6, 'six undos allowed ' + used);
+  ok(h.timePenaltyMs === 6 * 20000, 'each undo adds 20 s');
+  ok(h.score === 0, 'score loses 10 per undo but never below 0: ' + h.score);
 }
-
 // ---- 4. Lose when 7 cards without a match; match on 7th card counts as match
 {
   let lostSeen = false;
