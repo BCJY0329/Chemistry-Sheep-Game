@@ -1,4 +1,4 @@
-# Chemistry Sheep – SK025 Functional Groups (Phase 1, offline)
+# Orgo-Go! – SK025 Functional Groups (Phase 1, offline)
 
 A Sheep-a-Sheep style matching game. Collect the 4 cards of one homologous series
 (Name, Functional group, General formula, Example) to clear them from the tray.
