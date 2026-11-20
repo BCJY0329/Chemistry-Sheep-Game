@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <title>Chemistry Sheep – SK025 Functional Groups</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chem Sheep">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ============ MAIN MENU ============ -->
+  <section id="screen-menu" class="screen menu-bg active">
+    <div class="menu-wrap">
+      <div class="logo">
+        <div class="logo-icons">🐑<span>⚗️</span></div>
+        <h1>Chemistry Sheep</h1>
+        <p class="subtitle">SK025 · Functional Groups &amp; Homologous Series</p>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn btn-play" data-go="modes">▶ Play</button>
+        <button class="btn" data-go="tutorial">🎓 Tutorial</button>
+        <button class="btn" data-go="notes">📒 Notes</button>
+        <button class="btn" id="btn-battle">⚔️ Battle <span class="soon">Soon</span></button>
+        <button class="btn" data-go="records">🏆 Ranking</button>
+      </div>
+      <button class="btn btn-install hidden" id="btn-install">📲 Install app</button>
+      <button class="mute-btn" id="btn-mute" aria-label="Toggle sound">🔊 Sound on</button>
+    </div>
+  </section>
+
+  <!-- ============ MODE SELECT ============ -->
+  <section id="screen-modes" class="screen menu-bg">
+    <div class="page">
+      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>Choose a mode</h2></div>
+      <div id="mode-list" class="mode-list"></div>
+      <p class="hint-text">Win 3 rounds in Easy to unlock Medium, and 3 rounds in Medium to unlock Hard.</p>
+    </div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen">
+    <div class="g-deco" id="deco" aria-hidden="true"></div>
+    <header class="g-top">
+      <button class="g-icon" id="btn-pause" aria-label="Pause">☰</button>
+      <div class="g-title"><span id="hud-mode">Easy</span><small id="hud-theme"></small></div>
+      <div class="g-timer" id="hud-time">0:00.0</div>
+    </header>
+    <div class="g-stats">
+      <div><small>Score</small><b id="hud-score">0</b></div>
+      <div><small>Sets</small><b id="hud-sets">0/0</b></div>
+      <div><small>Streak</small><b id="hud-streak">0</b></div>
+      <div><small>Tray</small><b id="hud-tray">0/7</b></div>
+    </div>
+    <div class="g-board-wrap" id="board-wrap">
+      <div class="g-board" id="board"></div>
+    </div>
+    <div class="g-bottom">
+      <div class="g-legend">
+        <span class="lg t-fg">Functional group</span><span class="lg t-gf">General formula</span>
+        <span class="lg t-ex">Example</span><span class="lg t-name">Name</span>
+      </div>
+      <div class="g-tray" id="tray"></div>
+      <div class="g-actions">
+        <button class="act" id="btn-undo">↩ Undo <span class="badge" id="cnt-undo">3</span></button>
+        <button class="act" id="btn-hint">💡 Hint <span class="badge" id="cnt-hint">3</span></button>
+        <button class="act" id="btn-shuffle">🔀 Shuffle <span class="badge" id="cnt-shuffle">1</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NOTES ============ -->
+  <section id="screen-notes" class="screen paper-bg">
+    <div class="page">
+      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>Summary Notes</h2></div>
+      <p class="notes-intro">The 14 homologous series in this game. Each card set is <b>Name</b>, <b>Functional group</b>,
+        <b>General formula</b> and <b>Example</b>.</p>
+      <div id="notes-list" class="notes-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ TUTORIAL ============ -->
+  <section id="screen-tutorial" class="screen menu-bg">
+    <div class="page">
+      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>How to play</h2></div>
+      <div class="tut-card" id="tut-card"></div>
+      <div class="tut-nav">
+        <button class="btn small" id="tut-prev">‹ Prev</button>
+        <div class="tut-dots" id="tut-dots"></div>
+        <button class="btn small" id="tut-next">Next ›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECORDS ============ -->
+  <section id="screen-records" class="screen menu-bg">
+    <div class="page">
+      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>Ranking</h2></div>
+      <div id="records" class="records"></div>
+    </div>
+  </section>
+
+  <!-- ============ OVERLAY + TOAST ============ -->
+  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal" id="modal"></div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/deco.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    /* Installable app: offline support + "Install app" button (needs http/https, not a double-clicked file) */
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    }
+    (function () {
+      var deferred = null, btn = document.getElementById('btn-install');
+      var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; btn.classList.remove('hidden'); });
+      if (isIOS && !standalone && location.protocol !== 'file:') btn.classList.remove('hidden');
+      btn.addEventListener('click', function () {
+        if (deferred) { deferred.prompt(); deferred.userChoice.finally(function () { deferred = null; btn.classList.add('hidden'); }); }
+        else alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
+      });
+      window.addEventListener('appinstalled', function () { btn.classList.add('hidden'); });
+    })();
+  </script>
+</body>
+</html>
