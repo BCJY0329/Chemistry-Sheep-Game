@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#cfe6e1">
   <title>Orgo-Go! – SK025 Functional Groups</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -16,96 +16,99 @@
 </head>
 <body>
 
-  <!-- ============ MAIN MENU ============ -->
-  <section id="screen-menu" class="screen menu-bg active">
-    <div class="menu-wrap">
-      <div class="logo">
-        <div class="logo-icons">🐑<span>⚗️</span></div>
-        <h1>Orgo-Go!</h1>
-        <p class="subtitle">SK025 · Functional Groups &amp; Homologous Series</p>
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="screen page-screen active">
+    <div class="scroll">
+      <div class="scene-band home-band">
+        <div class="scene" id="home-scene"></div>
+        <div class="home-title"><h1>Orgo-Go!</h1><p>SK025 Chemistry Lab</p></div>
       </div>
-      <div class="menu-buttons">
-        <button class="btn btn-play" data-go="modes">▶ Play</button>
-        <button class="btn" data-go="tutorial">🎓 Tutorial</button>
-        <button class="btn" data-go="notes">📒 Notes</button>
-        <button class="btn" id="btn-battle">⚔️ Battle <span class="soon">Soon</span></button>
-        <button class="btn" data-go="records">🏆 Ranking</button>
+      <div class="stack">
+        <div class="card labid" id="labid"></div>
+        <div class="card daily" id="daily"></div>
+        <div class="card play-card">
+          <div class="seg" id="mode-seg" role="tablist" aria-label="Difficulty"></div>
+          <p class="mode-note" id="mode-note"></p>
+          <button class="btn-main" id="btn-play"></button>
+        </div>
+        <div class="card shelf-card">
+          <div class="card-head"><h3>Specimen shelf</h3><span id="shelf-count"></span></div>
+          <div class="shelf" id="shelf"></div>
+          <p class="small-note">Clear a set to collect its series. Clear it 3 times to fill the tube. Tap a tube to revise it.</p>
+        </div>
       </div>
-      <button class="btn btn-install hidden" id="btn-install">📲 Install app</button>
-      <button class="mute-btn" id="btn-mute" aria-label="Toggle sound">🔊 Sound on</button>
-    </div>
-  </section>
-
-  <!-- ============ MODE SELECT ============ -->
-  <section id="screen-modes" class="screen menu-bg">
-    <div class="page">
-      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>Choose a mode</h2></div>
-      <div id="mode-list" class="mode-list"></div>
-      <p class="hint-text">Win 3 rounds in Easy to unlock Medium, and 3 rounds in Medium to unlock Hard.</p>
     </div>
   </section>
 
   <!-- ============ GAME ============ -->
   <section id="screen-game" class="screen">
-    <div class="g-deco" id="deco" aria-hidden="true"></div>
-    <header class="g-top">
-      <button class="g-icon" id="btn-pause" aria-label="Pause">☰</button>
-      <div class="g-title"><span id="hud-mode">Easy</span><small id="hud-theme"></small></div>
-      <div class="g-timer" id="hud-time">0:00.0</div>
-    </header>
+    <div class="g-head">
+      <div class="scene" id="game-scene"></div>
+      <header class="g-top">
+        <button class="g-icon" id="btn-pause" aria-label="Pause"></button>
+        <div class="g-title"><span id="hud-mode">Easy</span><small id="hud-theme"></small></div>
+      </header>
+    </div>
     <div class="g-stats">
-      <div><small>Score</small><b id="hud-score">0</b></div>
-      <div><small>Sets</small><b id="hud-sets">0/0</b></div>
-      <div><small>Streak</small><b id="hud-streak">0</b></div>
-      <div><small>Tray</small><b id="hud-tray">0/7</b></div>
+      <div class="stat"><small><i class="ico" data-ico="clock"></i>Time</small><b id="hud-time">0:00.0</b></div>
+      <div class="stat"><small><i class="ico" data-ico="star"></i>Score</small><b id="hud-score">0</b></div>
+      <div class="stat"><small><i class="ico" data-ico="tubes"></i>Sets</small><b id="hud-sets">0/0</b></div>
     </div>
     <div class="g-board-wrap" id="board-wrap">
       <div class="g-board" id="board"></div>
     </div>
     <div class="g-bottom">
-      <div class="g-legend">
-        <span class="lg t-fg">Functional group</span><span class="lg t-gf">General formula</span>
-        <span class="lg t-ex">Example</span><span class="lg t-name">Name</span>
-      </div>
       <div class="g-tray" id="tray"></div>
       <div class="g-actions">
-        <button class="act" id="btn-undo">↩ Undo <span class="badge" id="cnt-undo">3</span></button>
-        <button class="act" id="btn-hint">💡 Hint <span class="badge" id="cnt-hint">3</span></button>
-        <button class="act" id="btn-shuffle">🔀 Shuffle <span class="badge" id="cnt-shuffle">1</span></button>
+        <button class="act" id="btn-undo"><i class="ico" data-ico="undo"></i><span>Undo</span><small><b id="cnt-undo">∞</b> · +20s −10</small></button>
+        <button class="act" id="btn-hint"><i class="ico" data-ico="hint"></i><span>Hint</span><small><b id="cnt-hint">3</b> left</small></button>
+        <button class="act" id="btn-shuffle"><i class="ico" data-ico="shuffle"></i><span>Shuffle</span><small><b id="cnt-shuffle">1</b> left</small></button>
       </div>
     </div>
   </section>
 
   <!-- ============ NOTES ============ -->
-  <section id="screen-notes" class="screen paper-bg">
-    <div class="page">
-      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>Summary Notes</h2></div>
-      <p class="notes-intro">The 14 homologous series in this game. Each card set is <b>Name</b>, <b>Functional group</b>,
-        <b>General formula</b> and <b>Example</b>.</p>
-      <div id="notes-list" class="notes-list"></div>
-    </div>
-  </section>
-
-  <!-- ============ TUTORIAL ============ -->
-  <section id="screen-tutorial" class="screen menu-bg">
-    <div class="page">
-      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>How to play</h2></div>
-      <div class="tut-card" id="tut-card"></div>
-      <div class="tut-nav">
-        <button class="btn small" id="tut-prev">‹ Prev</button>
-        <div class="tut-dots" id="tut-dots"></div>
-        <button class="btn small" id="tut-next">Next ›</button>
+  <section id="screen-notes" class="screen page-screen">
+    <div class="scroll">
+      <div class="scene-band page-band"><div class="scene"></div><div class="page-title"><h2>Summary notes</h2><p>All 14 homologous series</p></div></div>
+      <div class="stack wide">
+        <p class="notes-intro">Each card set is <b>Name</b>, <b>Functional group</b>, <b>General formula</b> and <b>Example</b>.</p>
+        <div id="notes-list" class="notes-list"></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ RECORDS ============ -->
-  <section id="screen-records" class="screen menu-bg">
-    <div class="page">
-      <div class="page-head"><button class="back" data-go="menu">‹ Back</button><h2>Ranking</h2></div>
-      <div id="records" class="records"></div>
+  <!-- ============ TUTORIAL ============ -->
+  <section id="screen-tutorial" class="screen page-screen">
+    <div class="scroll">
+      <div class="scene-band page-band"><div class="scene"></div><div class="page-title"><h2>How to play</h2><p>Learn the rules in 6 steps</p></div></div>
+      <div class="stack">
+        <div class="card tut-card" id="tut-card"></div>
+        <div class="tut-nav">
+          <button class="btn small alt" id="tut-prev">‹ Prev</button>
+          <div class="tut-dots" id="tut-dots"></div>
+          <button class="btn small" id="tut-next">Next ›</button>
+        </div>
+      </div>
     </div>
   </section>
+
+  <!-- ============ RANKING ============ -->
+  <section id="screen-records" class="screen page-screen">
+    <div class="scroll">
+      <div class="scene-band page-band"><div class="scene"></div><div class="page-title"><h2>Ranking</h2><p>Your records on this device</p></div></div>
+      <div class="stack"><div id="records" class="records"></div></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB BAR ============ -->
+  <nav class="tabbar" id="tabbar" aria-label="Main">
+    <button data-go="home"><i class="ico" data-ico="flask"></i>Play</button>
+    <button data-go="notes"><i class="ico" data-ico="notes"></i>Notes</button>
+    <button data-go="records"><i class="ico" data-ico="trophy"></i>Ranks</button>
+    <button data-go="tutorial"><i class="ico" data-ico="learn"></i>Learn</button>
+    <button id="btn-settings"><i class="ico" data-ico="gear"></i>Settings</button>
+  </nav>
 
   <!-- ============ OVERLAY + TOAST ============ -->
   <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true">
@@ -116,23 +119,27 @@
   <script src="js/data.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/deco.js"></script>
+  <script src="js/scene.js"></script>
   <script src="js/ui.js"></script>
   <script>
     /* Installable app: offline support + "Install app" button (needs http/https, not a double-clicked file) */
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
     }
+    /* "Install app": the button lives in Settings (ui.js reads window.OrgoInstall) */
     (function () {
-      var deferred = null, btn = document.getElementById('btn-install');
+      var deferred = null;
       var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
       var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; btn.classList.remove('hidden'); });
-      if (isIOS && !standalone && location.protocol !== 'file:') btn.classList.remove('hidden');
-      btn.addEventListener('click', function () {
-        if (deferred) { deferred.prompt(); deferred.userChoice.finally(function () { deferred = null; btn.classList.add('hidden'); }); }
-        else alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
-      });
-      window.addEventListener('appinstalled', function () { btn.classList.add('hidden'); });
+      window.OrgoInstall = {
+        available: function () { return !!deferred || (isIOS && !standalone && location.protocol !== 'file:'); },
+        prompt: function () {
+          if (deferred) { deferred.prompt(); deferred.userChoice.finally(function () { deferred = null; }); }
+          else alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
+        }
+      };
+      window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; });
+      window.addEventListener('appinstalled', function () { deferred = null; });
     })();
   </script>
 </body>

@@ -12,18 +12,20 @@ A Sheep-a-Sheep style matching game. Collect the 4 cards of one homologous serie
 | File | What it holds |
 |---|---|
 | `index.html` | Page layout: all screens |
-| `css/styles.css` | Look and feel, plus the 4 themes (lab, minimal, garden, notebook) |
+| `css/styles.css` | Look and feel ("Lab Bench" design), animations |
 | `js/data.js` | **Chemistry content:** the 14 series. Edit cards here |
 | `js/engine.js` | Game rules: layers, covering, tray, matching, undo, hint, shuffle, solvable boards, modes |
-| `js/ui.js` | Screens, animations, timer, sound, saved records |
-| `js/deco.js` | Background art for each theme and the board-shape plate under the cards |
+| `js/ui.js` | Screens, tab bar, timer, sound, saved progress (records, XP/rank, streak, Today's Experiment, specimen shelf), settings |
+| `js/scene.js` | Lab wall, window and bench drawing; sky follows the clock, or real weather (Open-Meteo) if switched on in Settings |
+| `js/deco.js` | The board-shape plate under the cards |
 | `tests/engine.test.js` | Logic tests: `node tests/engine.test.js` |
 
 ## Where to change things
 - **Cards / series:** `js/data.js` (`_{...}` makes a subscript, e.g. `C_{n}H_{2n+1}OH`).
 - **Mode sizes, hints (3), shuffles (1):** the `MODES` table at the top of `js/engine.js`. Undo is unlimited; its penalty (+20 s, −10 points) is `UNDO_TIME_PENALTY_MS` / `UNDO_SCORE_PENALTY` just below it.
 - **Board shapes** (Square, Diamond, Pyramid, Circle, Hexagon, Flask – one picked at random each round): add more in `SHAPES` in `js/engine.js`.
-- **New theme:** add its name to `THEMES` in `js/engine.js`, a `.theme-<name>` block in `css/styles.css`, and its doodles in `ART` in `js/deco.js`.
+- **Bench items / sky:** edit `ITEMS` and `skySvg` in `js/scene.js`.
+- **Ranks, XP and daily names:** `RANKS`, `WIN_XP` and `DAILY_NAMES` at the top of `js/ui.js`.
 
 ## Saved data
 Wins, unlocks, best times and recent rounds are saved in the browser (localStorage) on each device.
