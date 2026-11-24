@@ -1,9 +1,9 @@
 /* Service worker: lets the installed app open and play with no internet.
    When you change any game file, bump VERSION so phones download the update. */
-var VERSION = 'chemsheep-v7';
+var VERSION = 'chemsheep-v8';
 var FILES = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
-  './js/data.js', './js/engine.js', './js/deco.js', './js/scene.js', './js/ui.js',
+  './js/data.js', './js/engine.js', './js/deco.js', './js/scene.js', './js/chem.js', './js/molview.js', './js/quiz.js', './js/ui.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'
 ];
 

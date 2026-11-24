@@ -21,10 +21,14 @@
     easy:     { id: 'easy',     label: 'Easy',     series: 5,  repeats: 0, layers: 3, maxHeld: 4, undos: -1, hints: 3, shuffles: 1 },
     medium:   { id: 'medium',   label: 'Medium',   series: 9,  repeats: 0, layers: 4, maxHeld: 5, undos: -1, hints: 3, shuffles: 1 },
     hard:     { id: 'hard',     label: 'Hard',     series: 14, repeats: 0, layers: 4, maxHeld: 6, undos: -1, hints: 3, shuffles: 1 },
+    /* Extreme = Hard plus "?" blocks that must be answered before the cards under them can be picked */
+    extreme:  { id: 'extreme',  label: 'Extreme',  series: 14, repeats: 0, layers: 4, maxHeld: 6, undos: -1, hints: 3, shuffles: 1, questions: 8 },
     practice: { id: 'practice', label: 'Practice', series: 2,  repeats: 0, layers: 2, maxHeld: 4, undos: -1, hints: 3, shuffles: 1 }
   };
   var UNDO_TIME_PENALTY_MS = 20000, UNDO_SCORE_PENALTY = 10;
   var UNLOCK_WINS = 3;
+  /* "?" blocks: each question has a time limit; a wrong (or timed-out) answer adds time; too many wrong ends the round */
+  var Q_TIME_LIMIT_MS = 120000, Q_WRONG_PENALTY_MS = 30000, Q_MAX_WRONG = 4;
   var SCORE_PER_SET = 100, STREAK_STEP = 25, STREAK_MAX = 100;
 
   /* ---------- Board shapes: return true if a tile centred at (u,v) on layer k is allowed.
@@ -173,8 +177,8 @@
 
   /* Assign cards to a removal order so that following that order never
      holds more than `maxHeld` cards in the tray -> board is solvable.  */
-  function assignCards(order, openInit, unopenedInit, heldInit, maxHeld, rng, tries) {
-    tries = tries || 400;
+  function assignCards(order, openInit, unopenedInit, heldInit, maxHeld, rng, tries, traySize) {
+    tries = tries || 400; traySize = traySize || TRAY_SIZE;
     for (var attempt = 0; attempt < tries; attempt++) {
       var sets = openInit.map(function (o) { return { cards: o.cards, missing: o.missing.slice() }; });
       var un = shuffled(unopenedInit, rng);
@@ -185,7 +189,7 @@
         sets.forEach(function (st) {
           st.missing.forEach(function (t) {
             var completes = st.missing.length === 1, nh = held + 1;
-            if (completes) { if (nh <= TRAY_SIZE) opts.push({ w: 4, st: st, t: t }); return; }
+            if (completes) { if (nh <= traySize) opts.push({ w: 4, st: st, t: t }); return; }
             if (nh > maxHeld) return;
             if (nh === maxHeld && !(anyOne || st.missing.length === 2)) return;
             opts.push({ w: 1.6, st: st, t: t });
@@ -222,7 +226,14 @@
   /* ---------- Game state ---------- */
   function newGame(opts) {
     opts = opts || {};
-    var mode = MODES[opts.mode] || MODES.easy;
+    var base = MODES[opts.mode] || MODES.easy, mode = {};
+    Object.keys(base).forEach(function (k) { mode[k] = base[k]; });
+    // optional rule changes (used by Today's Experiment)
+    if (opts.noHelp) { mode.undos = 0; mode.hints = 0; mode.shuffles = 0; }
+    if (opts.questions != null) mode.questions = opts.questions;
+    if (opts.repeats != null) mode.repeats = opts.repeats;
+    var traySize = opts.traySize || TRAY_SIZE;
+    mode.maxHeld = Math.min(mode.maxHeld, traySize - 1);
     var seed = opts.seed != null ? opts.seed : Math.floor(Math.random() * 1e9);
     var rng = rngFrom(seed);
     var cols = opts.cols || 5;
@@ -238,14 +249,31 @@
       if (repeatIds.indexOf(s.id) >= 0) instances.push(makeInstance(s, (first + 1) % s.ex.length, instId++));
     });
 
-    var count = instances.length * 4;
+    var qCount = mode.questions || 0;
+    var count = instances.length * 4 + qCount;
     var shape = opts.shape || pick(Object.keys(SHAPES), rng);
     var theme = opts.theme || pick(THEMES, rng);
     var layout = buildLayout(count, mode.layers, cols, shape, rng, opts.aspect);
     var coveredBy = computeCoveredBy(layout.slots);
     var allIds = layout.slots.map(function (s) { return s.id; });
     var order = removalOrder(allIds, coveredBy, rng);
-    var map = assignCards(order, [], instances, 0, mode.maxHeld, rng) || sequentialAssign(order, instances);
+    // "?" blocks take slots that cover other tiles (preferring higher layers), so they really block cards
+    var qIds = {};
+    if (qCount) {
+      var cand = shuffled(allIds.filter(function (i) { return layout.slots[i].layer > 0; }), rng)
+        .sort(function (a, b) { return layout.slots[b].layer - layout.slots[a].layer; });
+      var spread = [];  // avoid two ? blocks on the same spot of neighbouring layers
+      for (var ci = 0; ci < cand.length && spread.length < qCount; ci++) {
+        var a = layout.slots[cand[ci]];
+        if (!spread.some(function (j) { var b = layout.slots[j]; return Math.abs(a.x - b.x) < 3 && Math.abs(a.y - b.y) < 3; })) spread.push(cand[ci]);
+      }
+      for (ci = 0; ci < cand.length && spread.length < qCount; ci++) if (spread.indexOf(cand[ci]) < 0) spread.push(cand[ci]);
+      spread.forEach(function (i) { qIds[i] = true; });
+    }
+    var cardOrder = order.filter(function (i) { return !qIds[i]; });
+    var map = assignCards(cardOrder, [], instances, 0, mode.maxHeld, rng, 400, traySize) || sequentialAssign(cardOrder, instances);
+    Object.keys(qIds).forEach(function (i) { map[i] = { series: null, type: 'q', text: '?' }; });
+    if (opts.nameIt) Object.keys(map).forEach(function (i) { if (map[i].type === 'ex') map[i] = { series: map[i].series, type: 'ex', text: map[i].exName, exName: map[i].exName }; });
 
     var uid = 0;
     var tiles = layout.slots.map(function (sl) {
@@ -256,7 +284,8 @@
     return {
       mode: mode.id, cfg: mode, seed: seed, theme: theme, shape: shape, cols: cols,
       gridW: layout.gridW, gridH: layout.gridH,
-      tiles: tiles, coveredBy: coveredBy, tray: [], solutionOrder: order,
+      tiles: tiles, coveredBy: coveredBy, tray: [], solutionOrder: order, traySize: traySize,
+      qTotal: qCount, qWrong: 0, qRight: 0, qMaxWrong: Q_MAX_WRONG, timeLimitMs: opts.timeLimitMs || 0, lossReason: null,
       seriesIds: chosen.map(function (s) { return s.id; }),
       undosLeft: mode.undos, timePenaltyMs: 0, hintsLeft: mode.hints, shufflesLeft: mode.shuffles,
       undosUsed: 0, hintsUsed: 0, shufflesUsed: 0,
@@ -297,7 +326,8 @@
     if (state.status !== 'playing') return { ok: false, reason: 'over' };
     if (!state.tiles[id] || state.tiles[id].where !== 'board') return { ok: false, reason: 'gone' };
     if (!isFree(state, id)) return { ok: false, reason: 'covered' };
-    if (state.tray.length >= TRAY_SIZE) return { ok: false, reason: 'full' };
+    if (state.tiles[id].card.type === 'q') return { ok: false, reason: 'question' };
+    if (state.tray.length >= state.traySize) return { ok: false, reason: 'full' };
     state.tiles[id].where = 'tray';
     state.tray.push(id);
     state.picks++;
@@ -315,9 +345,30 @@
       res.matched = m;
     }
     if (boardCount(state) === 0 && state.tray.length === 0) state.status = 'won';
-    else if (state.tray.length >= TRAY_SIZE) state.status = 'lost';
+    else if (state.tray.length >= state.traySize) { state.status = 'lost'; state.lossReason = 'tray'; }
     res.status = state.status;
     return res;
+  }
+
+  /* Answer the question on a free "?" block. Right: the block disappears. Wrong: +30 s, block stays. */
+  function answerQuestion(state, id, correct) {
+    if (state.status !== 'playing') return { ok: false, reason: 'over' };
+    var t = state.tiles[id];
+    if (!t || t.card.type !== 'q' || !isFree(state, id)) return { ok: false, reason: 'notFree' };
+    if (correct) {
+      t.where = 'gone'; state.qRight++;
+      if (boardCount(state) === 0 && state.tray.length === 0) state.status = 'won';
+      return { ok: true, correct: true, status: state.status };
+    }
+    state.qWrong++; state.streak = 0;
+    state.timePenaltyMs += Q_WRONG_PENALTY_MS;
+    if (state.qWrong >= state.qMaxWrong) { state.status = 'lost'; state.lossReason = 'questions'; }
+    return { ok: true, correct: false, timeAdded: Q_WRONG_PENALTY_MS, status: state.status };
+  }
+  /* Countdown rounds (Today's Experiment): call with the elapsed time */
+  function checkTimeLimit(state, elapsedMs) {
+    if (state.status === 'playing' && state.timeLimitMs && elapsedMs >= state.timeLimitMs) { state.status = 'lost'; state.lossReason = 'time'; return true; }
+    return false;
   }
 
   /* Undo: send a tray card back to its exact original slot.
@@ -344,7 +395,10 @@
       var c = state.tiles[id].card;
       cardKeys(c).forEach(function (s) { (trayTypes[s] = trayTypes[s] || {})[c.type] = true; });
     });
-    var free = state.tiles.filter(function (t) { return isFree(state, t.id); });
+    var freeAll = state.tiles.filter(function (t) { return isFree(state, t.id); });
+    var free = freeAll.filter(function (t) { return t.card.type !== 'q'; });
+    var qFree = freeAll.filter(function (t) { return t.card.type === 'q'; });
+    if (!free.length) return qFree.length ? qFree[0].id : null;
     var best = null, bestScore = -1;
     free.forEach(function (t) {
       var sc = 0;
@@ -361,6 +415,7 @@
       });
       if (sc > bestScore || (sc === bestScore && Math.random() < 0.5)) { bestScore = sc; best = t; }
     });
+    if (bestScore < 10 && qFree.length) return qFree[0].id;   // nothing useful to pick: open a ? block instead
     return best ? best.id : null;
   }
   function useHint(state) {
@@ -374,12 +429,12 @@
   function shuffleBoard(state) {
     if (state.status !== 'playing' || state.shufflesLeft <= 0) return { ok: false };
     var rng = rngFrom(state.rngState + state.picks * 7919 + state.shufflesUsed * 104729);
-    var boardIds = state.tiles.filter(function (t) { return t.where === 'board'; }).map(function (t) { return t.id; });
+    var boardIds = state.tiles.filter(function (t) { return t.where === 'board' && t.card.type !== 'q'; }).map(function (t) { return t.id; });
     if (boardIds.length < 2) return { ok: false };
     // rebuild groups per series (tray cards first so they join open groups)
     var bySeries = {};
     state.tiles.forEach(function (t) {
-      if (t.where === 'gone') return;
+      if (t.where === 'gone' || t.card.type === 'q') return;
       var g = (bySeries[t.card.series] = bySeries[t.card.series] || { fg: [], gf: [], ex: [], name: [] });
       if (t.where === 'tray') g[t.card.type].unshift({ card: t.card, inTray: true });
       else g[t.card.type].push({ card: t.card, inTray: false });
@@ -393,9 +448,21 @@
         if (anyTray) open.push({ cards: cards, missing: missing }); else unopened.push({ cards: cards });
       }
     });
-    var cov = state.coveredBy.map(function (list) { return list.filter(function (j) { return state.tiles[j].where === 'board'; }); });
+    // ? blocks can always be answered once free, so plan through them: a card under a ? block
+    // must wait for every card that sits on top of that block.
+    function effCov(i, seen) {
+      var out = [];
+      state.coveredBy[i].forEach(function (j) {
+        if (state.tiles[j].where !== 'board' || seen[j]) return;
+        seen[j] = true;
+        if (state.tiles[j].card.type === 'q') effCov(j, seen).forEach(function (k) { if (out.indexOf(k) < 0) out.push(k); });
+        else if (out.indexOf(j) < 0) out.push(j);
+      });
+      return out;
+    }
+    var cov = state.coveredBy.map(function (list, i) { return effCov(i, {}); });
     var order = removalOrder(boardIds, cov, rng);
-    var map = assignCards(order, open, unopened, state.tray.length, 6, rng, 600);
+    var map = assignCards(order, open, unopened, state.tray.length, Math.min(6, state.traySize - 1), rng, 600, state.traySize);
     var guaranteed = !!map;
     if (!map) { // no solvable deal exists from here: plain random shuffle
       var cards = shuffled(boardIds.map(function (id) { return state.tiles[id].card; }), rng);
@@ -411,7 +478,9 @@
     rngFrom: rngFrom, buildLayout: buildLayout, computeCoveredBy: computeCoveredBy, removalOrder: removalOrder,
     assignCards: assignCards, overlap: overlap, overlapsTopStrip: overlapsTopStrip, cardKeys: cardKeys,
     newGame: newGame, isFree: isFree, pickTile: pickTile, undoTile: undoTile, findMatch: findMatch,
-    findHint: findHint, useHint: useHint, shuffleBoard: shuffleBoard, boardCount: boardCount
+    findHint: findHint, useHint: useHint, shuffleBoard: shuffleBoard, boardCount: boardCount,
+    answerQuestion: answerQuestion, checkTimeLimit: checkTimeLimit,
+    Q_TIME_LIMIT_MS: Q_TIME_LIMIT_MS, Q_WRONG_PENALTY_MS: Q_WRONG_PENALTY_MS, Q_MAX_WRONG: Q_MAX_WRONG
   };
   root.ChemEngine = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

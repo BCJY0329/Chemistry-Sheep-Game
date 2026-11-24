@@ -6,16 +6,33 @@
    ===================================================================== */
 (function () {
   'use strict';
-  var D = window.CHEM_DATA, E = window.ChemEngine, S = window.ChemScene;
+  var D = window.CHEM_DATA, E = window.ChemEngine, S = window.ChemScene, Q = window.ChemQuiz, MV = window.MolView;
   var TYPE_LABEL = {}; D.CARD_TYPES.forEach(function (t) { TYPE_LABEL[t.id] = t.label; });
-  var SHORT_LABEL = { fg: 'Group', gf: 'Formula', ex: 'Example', name: 'Name' };
+  var SHORT_LABEL = { fg: 'Group', gf: 'Formula', ex: 'Example', name: 'Name', q: 'Question' };
+  var MODE_ORDER = ['easy', 'medium', 'hard', 'extreme'];
+  var BOSS_MODES = { medium: 'medium', hard: 'hard', extreme: 'hard' };      // modes that end with a boss, and its tier
+  var BOSS_BASE = { medium: 200, hard: 350, extreme: 500 };
+  var BOSS_FULL_S = { medium: 20, hard: 30, extreme: 20 }, BOSS_LOW_S = { medium: 90, hard: 120, extreme: 80 };
   var SERIES_BY_ID = {}; D.SERIES.forEach(function (s) { SERIES_BY_ID[s.id] = s; });
   var SYMBOL = { alkane: 'Ak', alkene: 'Ae', alkyne: 'Ay', alcohol: 'Ol', carboxylic: 'Ca', ester: 'Es', haloalkane: 'Hx', aldehyde: 'Al',
                  ketone: 'Ke', ether: 'Et', acylchloride: 'Ac', amide: 'Am', amine: 'An', nitrile: 'Ni' };
   var RANKS = [[0, 'Lab Visitor'], [100, 'Lab Assistant'], [250, 'Lab Technician'], [450, 'Senior Technician'], [700, 'Research Assistant'],
                [1000, 'Chemist'], [1400, 'Senior Chemist'], [1900, 'Lab Manager'], [2500, 'Professor of Chemistry']];
-  var WIN_XP = { easy: 30, medium: 50, hard: 80, practice: 10 };
-  var DAILY_NAMES = ['Mystery Mix', 'Reflux Run', 'Titration Trial', 'Distillation Dash', 'Crystal Clear', 'Fume Hood Frenzy', 'Bunsen Blitz', 'Catalyst Chase'];
+  var WIN_XP = { easy: 30, medium: 50, hard: 80, extreme: 120, practice: 10 };
+  /* Today's Experiment rotates through these, one per day. L = the player's level (easy/medium/hard). */
+  var CLOCK_MS = { easy: 150000, medium: 270000, hard: 420000 };
+  var DAILY_TYPES = [
+    { name: 'Carbonyl Day', desc: 'Only the six series with a C=O group', opts: function () { return { mode: 'medium', seriesIds: ['aldehyde', 'ketone', 'carboxylic', 'ester', 'acylchloride', 'amide'] }; } },
+    { name: 'Tight Tray', desc: 'Only 6 tray slots instead of 7', opts: function (L) { return { mode: L, traySize: 6 }; } },
+    { name: 'Name-it Day', desc: 'Example cards show IUPAC names instead of formulas', opts: function (L) { return { mode: L, nameIt: true }; } },
+    { name: 'Quiz Gauntlet', desc: '5 ? question blocks on the board, then a boss', boss: true, opts: function (L) { return { mode: L === 'easy' ? 'easy' : 'medium', questions: 5 }; } },
+    { name: 'Look-alike Day', desc: 'Ten series that are easy to mix up', opts: function () { return { mode: 'medium', seriesIds: ['aldehyde', 'ketone', 'alcohol', 'ether', 'carboxylic', 'ester', 'amine', 'amide', 'alkene', 'alkyne'] }; } },
+    { name: 'No Safety Net', desc: 'No undo, no hints, no shuffle', opts: function (L) { return { mode: L, noHelp: true }; } },
+    { name: 'Double Trouble', desc: 'Every series appears twice, with different examples', opts: function () { return { mode: 'easy', repeats: 5 }; } },
+    { name: 'Beat the Clock', desc: 'Clear the board before the countdown runs out', clock: true, opts: function (L) { return { mode: L, timeLimitMs: CLOCK_MS[L] }; } },
+    { name: 'Nitrogen Day', desc: 'Amines, amides, nitriles and the acids they come from', opts: function () { return { mode: 'easy', seriesIds: ['amine', 'amide', 'nitrile', 'carboxylic', 'acylchloride'] }; } },
+    { name: 'Hydrocarbons & Halogens', desc: 'Alkanes, alkenes, alkynes and haloalkanes – with a 6-slot tray', opts: function () { return { mode: 'easy', seriesIds: ['alkane', 'alkene', 'alkyne', 'haloalkane'], traySize: 6 }; } }
+  ];
   var DAILY_BONUS = 50;
 
   /* Line icons (stroke follows the text colour) */
@@ -61,6 +78,8 @@
     if (store) return store;
     try { store = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { store = {}; }
     store.wins = store.wins || { easy: 0, medium: 0, hard: 0 };
+    if (store.wins.extreme == null) store.wins.extreme = 0;
+    store.recentBoss = store.recentBoss || [];
     store.best = store.best || {};
     store.history = store.history || [];
     if (store.muted == null) store.muted = false;
@@ -77,6 +96,7 @@
     var s = load();
     if (mode === 'medium') return s.wins.easy >= E.UNLOCK_WINS;
     if (mode === 'hard') return s.wins.medium >= E.UNLOCK_WINS;
+    if (mode === 'extreme') return s.wins.hard >= E.UNLOCK_WINS;
     return true;
   }
   function rankInfo(xp) {
@@ -94,9 +114,12 @@
     st.days = st.last === yesterdayKey() ? st.days + 1 : 1; st.last = today;
   }
   function dailyInfo() {
-    var k = dayKey(), seed = +k.replace(/-/g, '');
-    var mode = isUnlocked('hard') ? 'hard' : isUnlocked('medium') ? 'medium' : 'easy';
-    return { seed: seed, mode: mode, name: DAILY_NAMES[seed % DAILY_NAMES.length], done: load().daily.done === k };
+    var k = dayKey(), seed = +k.replace(/-/g, ''), d = new Date();
+    var dayNo = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+    var L = isUnlocked('hard') ? 'hard' : isUnlocked('medium') ? 'medium' : 'easy';
+    var type = DAILY_TYPES[dayNo % DAILY_TYPES.length], opts = type.opts(L);
+    opts.seed = seed; opts.daily = true; opts.dailyType = type;
+    return { seed: seed, type: type, opts: opts, done: load().daily.done === k };
   }
   function level(count) { return count >= 3 ? 3 : count >= 2 ? 2 : count >= 1 ? 1 : 0; }
 
@@ -189,7 +212,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 1700);
   }
   function openModal(html, buttons) {
-    var m = $('#modal'); m.innerHTML = html + '<div class="btns"></div>';
+    var m = $('#modal'); m.className = 'modal'; m.innerHTML = html + '<div class="btns"></div>';
     var box = $('.btns', m);
     (buttons || []).forEach(function (b) {
       var btn = el('<button class="btn ' + (b.cls || '') + '">' + b.label + '</button>');
@@ -212,11 +235,11 @@
       '<div class="xp-txt">' + (r.next ? s.xp + ' / ' + r.next + ' XP to ' + r.nextName : s.xp + ' XP · top rank!') + '</div></div>' +
       '<div class="streak' + (days ? '' : ' off') + '" title="Days in a row you have played">' + ico('flame') + '<b>' + days + '</b><small>DAY' + (days === 1 ? '' : 'S') + '</small></div>';
 
-    var d = dailyInfo(), cfg = E.MODES[d.mode];
-    $('#daily').innerHTML = '<div class="hazard"></div><div class="in"><div><div class="eyebrow">Today\'s Experiment</div><h3>' + d.name + '</h3>' +
-      '<p>' + (d.done ? 'Done! A new experiment arrives tomorrow.' : cfg.label + ' · ' + cfg.series + ' series · bonus +' + DAILY_BONUS + ' pts') + '</p></div>' +
+    var d = dailyInfo();
+    $('#daily').innerHTML = '<div class="hazard"></div><div class="in"><div><div class="eyebrow">Today\'s Experiment</div><h3>' + d.type.name + '</h3>' +
+      '<p>' + (d.done ? 'Done! A new experiment arrives tomorrow.' : d.type.desc + ' · bonus +' + DAILY_BONUS + ' pts') + '</p></div>' +
       '<button class="go' + (d.done ? ' done' : '') + '" id="btn-daily">' + (d.done ? 'Replay' : 'Start') + '</button></div>';
-    $('#btn-daily').addEventListener('click', function () { startGame(d.mode, { seed: d.seed, daily: true }); });
+    $('#btn-daily').addEventListener('click', function () { startGame(d.opts.mode, d.opts); });
 
     renderModeSeg();
     var shelf = $('#shelf'), got = 0;
@@ -229,7 +252,7 @@
   }
   function renderModeSeg() {
     var s = load(), sel = isUnlocked(s.lastMode) ? s.lastMode : 'easy';
-    $('#mode-seg').innerHTML = ['easy', 'medium', 'hard'].map(function (m) {
+    $('#mode-seg').innerHTML = MODE_ORDER.map(function (m) {
       var un = isUnlocked(m);
       return '<button role="tab" data-mode="' + m + '" class="' + (m === sel ? 'on' : '') + (un ? '' : ' locked') + '">' + (un ? '' : ico('lock')) + E.MODES[m].label + '</button>';
     }).join('');
@@ -237,14 +260,14 @@
     $('#btn-play').innerHTML = ico('play') + 'Play ' + E.MODES[sel].label;
   }
   function unlockText(m) {
-    var prev = m === 'medium' ? 'easy' : 'medium', left = E.UNLOCK_WINS - load().wins[prev];
+    var prev = MODE_ORDER[MODE_ORDER.indexOf(m) - 1], left = E.UNLOCK_WINS - load().wins[prev];
     return 'Win ' + left + ' more ' + E.MODES[prev].label + ' round' + (left === 1 ? '' : 's') + ' to unlock ' + E.MODES[m].label;
   }
   function modeNote(m) {
-    var s = load(), cfg = E.MODES[m], next = m === 'easy' ? 'medium' : m === 'medium' ? 'hard' : null;
+    var s = load(), cfg = E.MODES[m], next = MODE_ORDER[MODE_ORDER.indexOf(m) + 1];
     if (next && !isUnlocked(next)) return unlockText(next);
     var b = s.best[m];
-    return cfg.series + ' series · Wins ' + s.wins[m] + (b && b.time != null ? ' · Best ' + fmtTime(b.time) : '');
+    return cfg.series + ' series' + (cfg.questions ? ' + ? blocks' : '') + (BOSS_MODES[m] ? ' + boss' : '') + ' · Wins ' + s.wins[m] + (b && b.time != null ? ' · Best ' + fmtTime(b.time) : '');
   }
   $('#mode-seg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-mode]'); if (!b) return;
@@ -358,9 +381,13 @@
     { t: 'Undo, Hint, Shuffle', h: '<ul><li><b>Undo (unlimited):</b> tap a tray card twice, or press Undo, to send it back to its exact spot on the board. ' +
       'Each undo adds <b>+20 seconds</b> to your time and takes away <b>10 points</b>.</li>' +
       '<li><b>Hint (3 per round):</b> highlights a good card to pick next.</li><li><b>Shuffle (1 per round):</b> re-deals the cards still on the board.</li></ul>' },
+    { t: 'Boss and ? blocks', h: '<p><b>Boss (Medium, Hard, Extreme):</b> after you clear the board, a real molecule appears. Tick <b>every</b> functional group in it and press Submit. ' +
+      'You must beat the boss to pass the round. The faster you answer, the bigger the bonus; wrong tries cost bonus points.</p>' +
+      '<p><b>? blocks (Extreme):</b> tap a free ? block to answer an SK025 question. Right = the block disappears and frees the cards under it. ' +
+      'Wrong or too slow (2 minutes) = +30 s, and the block asks a new question next time. 4 wrong answers end the round.</p>' },
     { t: 'Modes, rank and streak', h: '<ul><li><b>Easy:</b> 5 of the 14 series.</li><li><b>Medium:</b> 9 series – unlock by winning 3 Easy rounds.</li>' +
-      '<li><b>Hard:</b> all 14 series – unlock by winning 3 Medium rounds.</li></ul><p>Every round earns XP for your Lab ID rank. Play every day to grow your streak, ' +
-      'try <b>Today\'s Experiment</b> for bonus points, and fill the <b>Specimen shelf</b> by clearing each series.</p>' +
+      '<li><b>Hard:</b> all 14 series – unlock by winning 3 Medium rounds.</li><li><b>Extreme:</b> Hard plus ? question blocks – unlock by winning 3 Hard rounds.</li></ul><p>Every round earns XP for your Lab ID rank. Play every day to grow your streak, ' +
+      'try <b>Today\'s Experiment</b> (a different twist every day) for bonus points, and fill the <b>Specimen shelf</b> by clearing each series.</p>' +
       '<div class="btns" style="margin-top:14px"><button class="btn" id="tut-practice">Try a practice round</button></div>' }
   ];
   var tutIdx = 0;
@@ -394,7 +421,7 @@
     var s = load(), box = $('#records'), r = rankInfo(s.xp); box.innerHTML = '';
     box.appendChild(el('<div class="rec-card"><h3>' + ico('flask') + 'Lab ID</h3><div class="rec-stats">' +
       '<div><small>Rank</small><b>Lv ' + r.level + '</b></div><div><small>XP</small><b>' + s.xp + '</b></div><div><small>Streak</small><b>' + streakNow() + ' d</b></div></div></div>'));
-    ['easy', 'medium', 'hard'].forEach(function (m) {
+    MODE_ORDER.forEach(function (m) {
       var b = s.best[m];
       box.appendChild(el('<div class="rec-card"><h3>' + (isUnlocked(m) ? ico('trophy') : ico('lock')) + E.MODES[m].label + '</h3><div class="rec-stats">' +
         '<div><small>Wins</small><b>' + s.wins[m] + '</b></div>' +
@@ -423,12 +450,16 @@
     var w = window.innerWidth, h = window.innerHeight;
     var cols = w < 700 ? 5 : Math.max(6, Math.min(13, Math.floor(w / 115)));
     var areaH = Math.max(200, h - (w < 560 ? 330 : 260)), areaW = Math.max(200, w - 40);
-    G = E.newGame({ mode: mode, cols: cols, aspect: areaH / areaW, seed: opts.seed, theme: opts.theme, shape: opts.shape });
-    ui.daily = !!opts.daily; ui.newSpecimens = [];
-    ui.lastOpts = ui.daily ? { mode: mode, seed: opts.seed, shape: opts.shape, daily: true } : { mode: mode, shape: opts.shape };
-    $('#screen-game').className = 'screen';
-    $('#hud-mode').textContent = G.cfg.label + (mode === 'practice' ? '' : ' round');
-    $('#hud-theme').textContent = ui.daily ? "Today's Experiment" : E.SHAPES[G.shape].label + ' board';
+    var eo = {}; Object.keys(opts).forEach(function (k) { eo[k] = opts[k]; });
+    eo.mode = mode; eo.cols = cols; eo.aspect = areaH / areaW;
+    G = E.newGame(eo);
+    ui.daily = !!opts.daily; ui.dailyType = opts.dailyType || null; ui.newSpecimens = []; ui.boss = null; ui.qRecent = ui.qRecent || [];
+    ui.opts = opts;
+    ui.lastOpts = ui.daily ? opts : { mode: mode, shape: opts.shape };
+    $('#screen-game').className = 'screen' + (G.timeLimitMs ? ' countdown' : '');
+    $('#hud-mode').textContent = ui.daily ? ui.dailyType.name : G.cfg.label + (mode === 'practice' ? '' : ' round');
+    $('#hud-theme').textContent = ui.daily ? "Today's Experiment · " + G.cfg.label : E.SHAPES[G.shape].label + ' board';
+    $('#time-label').textContent = G.timeLimitMs ? 'Left' : 'Time';
     ui.elapsed = 0; ui.pendingTray = null; ui.pendingIds = null; ui.armed = null; ui.hintId = null;
     closeModal();
     show('game');
@@ -450,10 +481,17 @@
     updateTime();
   }
   function elapsed() { return ui.elapsed + (ui.running ? performance.now() - ui.startTs : 0) + (G ? G.timePenaltyMs : 0); }
-  function updateTime() { $('#hud-time').textContent = fmtTime(elapsed()); }
+  function updateTime() {
+    var t = elapsed();
+    if (G && G.timeLimitMs) {
+      $('#hud-time').textContent = fmtTime(Math.max(0, G.timeLimitMs - t));
+      $('#hud-time').classList.toggle('low', G.timeLimitMs - t < 30000);
+      if (G.status === 'playing' && E.checkTimeLimit(G, t)) { stopTimer(); closeModal(); clearInterval(ui.qTimer); sfx.bad(); setTimeout(showResult, 300); }
+    } else $('#hud-time').textContent = fmtTime(t);
+  }
   document.addEventListener('visibilitychange', function () {
     if (current !== 'game') return;
-    if (document.hidden) stopTimer(); else if (!modalOpen()) startTimer();
+    if (document.hidden) stopTimer(); else if (!modalOpen() || ui.qOpen) startTimer();
   });
 
   /* ---------- Layout ---------- */
@@ -477,6 +515,7 @@
     var fs = Math.min(lay.halfH * 0.5, 22);
     var lbl = Math.max(7.5, Math.min(lay.halfH * 0.3, 12));
     var cls = 'tile t-' + t.card.type + (free ? ' free' : ' covered') + (ui.hintId === t.id ? ' hinted' : '');
+    if (t.card.type === 'q') fs = Math.min(lay.halfH * 0.85, 34);
     return '<div class="' + cls + '" data-id="' + t.id + '" style="left:' + (sl.x * lay.halfW) + 'px;top:' + (sl.y * lay.halfH) + 'px;width:' + w +
       'px;height:' + h + 'px;z-index:' + (sl.layer * 1000 + sl.y) + '">' +
       '<div class="tile-top" style="font-size:' + fs.toFixed(1) + 'px"><span class="ct">' + D.fmt(t.card.text) + '</span></div>' +
@@ -492,6 +531,9 @@
     $('#cnt-undo').textContent = G.cfg.undos < 0 ? '∞' : G.undosLeft;
     $('#cnt-hint').textContent = G.hintsLeft;
     $('#cnt-shuffle').textContent = G.shufflesLeft;
+    var qs = $('#hud-q');
+    if (G.qTotal) { qs.classList.remove('hidden'); qs.innerHTML = '? blocks ' + (G.qTotal - G.qRight) + ' left · wrong <b>' + G.qWrong + '/' + G.qMaxWrong + '</b>'; }
+    else qs.classList.add('hidden');
     var playing = G.status === 'playing';
     $('#btn-undo').disabled = !playing || !G.tray.length || (G.cfg.undos >= 0 && G.undosLeft <= 0);
     $('#btn-hint').disabled = !playing || G.hintsLeft <= 0;
@@ -532,7 +574,7 @@
 
   function renderTray() {
     var list = ui.pendingTray || G.tray, tray = $('#tray'), html = '';
-    for (var i = 0; i < E.TRAY_SIZE; i++) {
+    for (var i = 0; i < G.traySize; i++) {
       var id = list[i];
       html += '<div class="slot"><span class="num">' + (i + 1) + '</span>';
       if (id != null) {
@@ -542,10 +584,10 @@
       }
       html += '</div>';
     }
-    html += '<div class="tray-count"><b id="hud-tray">' + G.tray.length + '/' + E.TRAY_SIZE + '</b><small>IN TRAY</small></div>';
+    html += '<div class="tray-count"><b id="hud-tray">' + G.tray.length + '/' + G.traySize + '</b><small>IN TRAY</small></div>';
     tray.innerHTML = html;
     fitStep(tray.querySelectorAll('.tc-txt'), 11);
-    tray.classList.toggle('danger', G.tray.length >= 5 && G.status === 'playing');
+    tray.classList.toggle('danger', G.tray.length >= G.traySize - 2 && G.status === 'playing');
   }
 
   function bump(sel) { var e = $(sel); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
@@ -587,6 +629,7 @@
       return;
     }
     flushPending();
+    if (G.tiles[id].card.type === 'q') { openQuestion(id); return; }
     var rect = tEl.getBoundingClientRect();
     var trayBefore = G.tray.slice();
     var res = E.pickTile(G, id);
@@ -607,8 +650,132 @@
       collectSpecimen(res.matched.series);
       ui.pendingTimer = setTimeout(function () { ui.pendingTray = null; ui.pendingIds = null; renderTray(); }, 480);
     }
-    if (G.status !== 'playing') { stopTimer(); setTimeout(showResult, res.matched ? 700 : 450); }
+    if (G.status !== 'playing') { stopTimer(); setTimeout(roundOver, res.matched ? 700 : 450); }
   });
+
+  /* Round finished: a cleared board still has to beat the boss (Medium and up) */
+  function needsBoss() { return G.status === 'won' && (ui.dailyType ? (ui.dailyType.boss || !!BOSS_MODES[G.mode]) : !!BOSS_MODES[G.mode]); }
+  function roundOver() { if (needsBoss()) openBoss(); else showResult(); }
+
+  /* ---------- ? question blocks ---------- */
+  function openQuestion(id) {
+    var q = Q.question(Math.random, ui.qRecent);
+    ui.qRecent.push(q.key); if (ui.qRecent.length > 25) ui.qRecent.shift();
+    ui.qOpen = true; sfx.hint();
+    var deadline = Date.now() + E.Q_TIME_LIMIT_MS, done = false;
+    var vis = '';
+    if (q.mol) vis = '<div class="mol-box">' + MV.svg(q.mol, { expanded: q.expanded, width: 300, height: q.expanded ? 190 : 150, maxBond: q.expanded ? 40 : 44 }) + '<small>' + q.molNote + '</small></div>';
+    else if (q.cond) vis = '<div class="cond-box">' + D.fmt(q.cond) + '<small>Condensed structural formula</small></div>';
+    var m = openModal('<div class="eyebrow">? block · wrong answers ' + G.qWrong + '/' + G.qMaxWrong + '</div>' +
+      '<div class="qbar"><i id="q-bar"></i></div><div class="q-time" id="q-time">2:00</div>' +
+      '<h2 class="q-text">' + D.fmt(q.q) + '</h2>' + vis +
+      '<div class="q-opts">' + q.options.map(function (o, i) { return '<button class="q-opt" data-i="' + i + '">' + (q.fmtOptions || /_/.test(o) ? D.fmt(o) : o) + '</button>'; }).join('') + '</div>', []);
+    m.classList.add('wide');
+    function tick() {
+      var left = deadline - Date.now();
+      var bar = $('#q-bar'); if (!bar) return;
+      bar.style.width = Math.max(0, left / E.Q_TIME_LIMIT_MS * 100) + '%';
+      $('#q-time').textContent = Math.max(0, Math.ceil(left / 1000)) + ' s left';
+      if (left <= 0 && !done) answer(-1);
+    }
+    clearInterval(ui.qTimer); ui.qTimer = setInterval(tick, 250); tick();
+    m.querySelectorAll('.q-opt').forEach(function (b) { b.addEventListener('click', function () { answer(+b.getAttribute('data-i')); }); });
+    function answer(i) {
+      if (done || G.status !== 'playing') return; done = true; clearInterval(ui.qTimer);
+      var right = i === q.answer;
+      m.querySelectorAll('.q-opt').forEach(function (b, j) { b.disabled = true; if (j === q.answer) b.classList.add('right'); else if (j === i) b.classList.add('wrong'); });
+      var r = E.answerQuestion(G, id, right);
+      if (right) {
+        sfx.match();
+        setTimeout(function () {
+          ui.qOpen = false; closeModal(); render(); bump('#hud-score');
+          toast('Correct! The ? block is cleared');
+          if (G.status !== 'playing') { stopTimer(); setTimeout(roundOver, 400); }
+        }, 700);
+        return;
+      }
+      sfx.bad(); updateTime(); bump('#hud-time');
+      var note = el('<p class="q-feedback">' + (i < 0 ? 'Time is up! ' : 'Not quite. ') + 'The right answer is highlighted. <b>+30 s</b> · wrong answers <b>' + G.qWrong + '/' + G.qMaxWrong + '</b>' +
+        (G.status === 'lost' ? '<br>That was the 4th wrong answer – the round is over.' : '') + '</p>');
+      $('.q-opts', m).after(note);
+      var btn = el('<div class="btns"><button class="btn">' + (G.status === 'lost' ? 'See result' : 'Back to the board') + '</button></div>');
+      note.after(btn);
+      btn.querySelector('button').addEventListener('click', function () {
+        ui.qOpen = false; closeModal(); render();
+        if (G.status !== 'playing') { stopTimer(); showResult(); }
+      });
+    }
+  }
+
+  /* ---------- Boss: name every functional group in a real molecule ---------- */
+  function openBoss() {
+    var tier = ui.dailyType && !BOSS_MODES[G.mode] ? 'medium' : BOSS_MODES[G.mode];
+    var key = BOSS_MODES[G.mode] ? G.mode : 'medium';
+    var s = load(), b = Q.boss(tier, Math.random, s.recentBoss);
+    s.recentBoss.push(b.name); if (s.recentBoss.length > 5) s.recentBoss.shift(); save();
+    var base = BOSS_BASE[key], t0 = Date.now(), wrongs = 0, picked = {}, finished = false;
+    function bonusNow() {
+      var sec = (Date.now() - t0) / 1000, f = sec <= BOSS_FULL_S[key] ? 1 : Math.max(0.25, 1 - 0.75 * (sec - BOSS_FULL_S[key]) / (BOSS_LOW_S[key] - BOSS_FULL_S[key]));
+      return Math.max(0, Math.round(base * f - wrongs * base * 0.2));
+    }
+    sfx.win(); $('#toast').classList.remove('show');
+    var big = b.mol.a.length > 16;
+    var m = openModal('<div class="eyebrow">Boss · ' + G.cfg.label + '</div><h2>Name its functional groups</h2>' +
+      '<p class="boss-sub">Tick <b>every</b> functional group in this molecule (' + D.fmt(b.formula.replace(/(\d+)/g, '_{$1}')) + '), then Submit.</p>' +
+      '<div class="mol-box boss-mol">' + MV.svg(b.mol, { width: 340, height: big ? 196 : 170, maxBond: big ? 28 : 42, title: 'Boss molecule' }) + '</div>' +
+      '<div class="boss-stat"><span id="boss-time">0:00</span><span>Bonus now <b id="boss-bonus">+' + base + '</b></span></div>' +
+      '<div class="chips" id="boss-chips">' + Q.BOSS_GROUPS.map(function (g) {
+        var sr = Q.SERIES[g]; return '<button class="chip" data-g="' + g + '"><b>' + sr.name + '</b><small>' + D.fmt(sr.fg) + '</small></button>'; }).join('') + '</div>' +
+      '<p class="q-feedback hidden" id="boss-msg"></p>', [
+      { label: 'Submit', keepOpen: true, onClick: submit },
+      { label: 'Give up (round lost)', cls: 'alt', keepOpen: true, onClick: giveUp }
+    ]);
+    m.classList.add('wide');
+    var tmr = setInterval(function () {
+      if (!$('#boss-time')) { clearInterval(tmr); return; }
+      $('#boss-time').textContent = fmtTime(Date.now() - t0).replace(/\.\d$/, '');
+      $('#boss-bonus').textContent = '+' + bonusNow();
+    }, 250);
+    $('#boss-chips', m).addEventListener('click', function (e) {
+      var c = e.target.closest('.chip'); if (!c || finished) return;
+      var g = c.getAttribute('data-g'); picked[g] = !picked[g];
+      c.classList.toggle('on', picked[g]); c.classList.remove('bad'); sfx.pick();
+    });
+    function submit() {
+      if (finished) return;
+      var sel = Object.keys(picked).filter(function (g) { return picked[g]; });
+      var wrong = sel.filter(function (g) { return b.groups.indexOf(g) < 0; }), missing = b.groups.filter(function (g) { return sel.indexOf(g) < 0; });
+      var msg = $('#boss-msg');
+      if (!sel.length) { toast('Tick at least one functional group'); return; }
+      if (!wrong.length && !missing.length) { win(); return; }
+      wrongs++; sfx.bad();
+      wrong.forEach(function (g) { $('.chip[data-g="' + g + '"]', m).classList.add('bad'); });
+      msg.classList.remove('hidden');
+      msg.innerHTML = (wrong.length ? '<b>' + wrong.length + '</b> ticked group' + (wrong.length > 1 ? 's are' : ' is') + ' not in the molecule (red). ' : '') +
+        (missing.length ? '<b>' + missing.length + '</b> group' + (missing.length > 1 ? 's are' : ' is') + ' still missing. ' : '') + 'Try again (−20% bonus).';
+      var mb = $('.boss-mol', m); mb.classList.remove('shake'); void mb.offsetWidth; mb.classList.add('shake');
+    }
+    function win() {
+      finished = true; clearInterval(tmr);
+      var bonus = bonusNow(), sec = Math.round((Date.now() - t0) / 1000);
+      G.score += bonus; ui.boss = { name: b.name, bonus: bonus, sec: sec, wrongs: wrongs };
+      sfx.match();
+      m.querySelectorAll('.chip').forEach(function (c) { if (b.groups.indexOf(c.getAttribute('data-g')) >= 0) c.classList.add('right'); c.disabled = true; });
+      var msg = $('#boss-msg'); msg.classList.remove('hidden'); msg.classList.add('good');
+      msg.innerHTML = 'Boss beaten! This is <b>' + b.name + '</b>. +' + bonus + ' bonus points (' + sec + ' s' + (wrongs ? ', ' + wrongs + ' wrong tr' + (wrongs > 1 ? 'ies' : 'y') : '') + ').';
+      var box = $('.btns', m); box.innerHTML = '';
+      var c = el('<button class="btn">Continue</button>'); c.addEventListener('click', function () { closeModal(); showResult(); }); box.appendChild(c);
+    }
+    function giveUp() {
+      openConfirm();
+      function openConfirm() {
+        finished = true; clearInterval(tmr);
+        G.status = 'lost'; G.lossReason = 'boss';
+        ui.boss = { name: b.name, gaveUp: true, groups: b.groups };
+        closeModal(); showResult();
+      }
+    }
+  }
 
   /* Specimen shelf: count each series cleared (first time = newly collected) */
   function collectSpecimen(seriesId) {
@@ -693,32 +860,36 @@
     stopTimer();
     openModal(bigIcon('pause') + '<h2>Paused</h2><p>' + G.cfg.label + ' · ' + fmtTime(elapsed()) + '</p>', [
       { label: 'Resume', onClick: startTimer },
-      { label: 'Restart round', cls: 'alt', onClick: function () { startGame(G.mode, { seed: G.seed, shape: G.shape, daily: ui.daily }); } },
-      { label: ui.daily ? 'Normal round' : 'New board', cls: 'alt', onClick: function () { startGame(G.mode, ui.daily ? {} : ui.lastOpts); } },
+      { label: 'Restart round', cls: 'alt', onClick: function () { var o = {}; Object.keys(ui.opts).forEach(function (k) { o[k] = ui.opts[k]; }); o.seed = G.seed; o.shape = G.shape; startGame(G.mode, o); } },
+      { label: ui.daily ? 'Normal round' : 'New board', cls: 'alt', onClick: function () { startGame(ui.daily ? (isUnlocked(load().lastMode) ? load().lastMode : 'easy') : G.mode, ui.daily ? {} : ui.lastOpts); } },
       { label: 'Home', cls: 'alt', onClick: function () { show('home'); } }
     ]);
   });
 
   /* ---------- Result ---------- */
   function showResult() {
+    clearInterval(ui.qTimer); ui.qOpen = false;
     var won = G.status === 'won', time = elapsed(), mode = G.mode, s = load();
+    if (G.timeLimitMs) time = Math.min(time, G.timeLimitMs);
     var extra = '', before = rankInfo(s.xp), xp = 0;
     if (won && ui.daily && s.daily.done !== dayKey()) {
       G.score += DAILY_BONUS; s.daily.done = dayKey();
       extra += '<div class="badge-new">Today\'s Experiment done · +' + DAILY_BONUS + ' bonus</div>';
     }
-    xp = G.setsCleared * 10 + (won ? WIN_XP[mode] : 0) + (won && ui.daily ? 25 : 0);
+    xp = G.setsCleared * 10 + (won ? WIN_XP[mode] : 0) + (won && ui.daily ? 25 : 0) + G.qRight * 5 + (ui.boss && ui.boss.bonus != null ? 20 : 0);
+    if (ui.boss && ui.boss.bonus != null) extra = '<div class="badge-new">Boss beaten: ' + ui.boss.name + ' · +' + ui.boss.bonus + '</div>' + extra;
     s.xp += xp;
     if (mode !== 'practice') {
       var hadStreak = streakNow(); bumpStreak();
       if (streakNow() > hadStreak) extra += '<div class="badge-new">Streak: ' + streakNow() + ' day' + (streakNow() === 1 ? '' : 's') + '</div>';
       s.history.push({ mode: mode, won: won, time: Math.round(time), score: G.score, date: Date.now(), daily: ui.daily || undefined });
+      if (s.wins[mode] == null) s.wins[mode] = 0;
       if (s.history.length > 50) s.history = s.history.slice(-50);
       if (won) {
-        var wasMed = isUnlocked('medium'), wasHard = isUnlocked('hard');
+        var wasMed = isUnlocked('medium'), wasHard = isUnlocked('hard'), wasExt = isUnlocked('extreme');
         s.wins[mode]++;
         var b = s.best[mode] || {};
-        var newTime = b.time == null || time < b.time, newScore = b.score == null || G.score > b.score;
+        var newTime = !ui.daily && (b.time == null || time < b.time), newScore = !ui.daily && (b.score == null || G.score > b.score);
         if (newTime) b.time = Math.round(time);
         if (newScore) b.score = G.score;
         s.best[mode] = b;
@@ -728,6 +899,8 @@
         if (!wasHard && isUnlocked('hard')) { extra += '<div class="badge-unlock">Hard mode unlocked!</div>'; s.lastMode = 'hard'; }
         if (mode === 'easy' && !isUnlocked('medium')) extra += '<p>Easy wins: ' + s.wins.easy + '/' + E.UNLOCK_WINS + ' to unlock Medium</p>';
         if (mode === 'medium' && !isUnlocked('hard')) extra += '<p>Medium wins: ' + s.wins.medium + '/' + E.UNLOCK_WINS + ' to unlock Hard</p>';
+        if (mode === 'hard' && !isUnlocked('extreme')) extra += '<p>Hard wins: ' + s.wins.hard + '/' + E.UNLOCK_WINS + ' to unlock Extreme</p>';
+        if (!wasExt && isUnlocked('extreme')) { extra += '<div class="badge-unlock">Extreme mode unlocked!</div>'; s.lastMode = 'extreme'; }
       }
     }
     if (ui.newSpecimens.length) extra += '<div class="badge-unlock">New on your specimen shelf: ' + ui.newSpecimens.join(', ') + '</div>';
@@ -736,18 +909,22 @@
     save();
     var grid = '<div class="result-grid"><div><small>Time</small><b>' + fmtTime(time) + '</b></div><div><small>Score</small><b>' + G.score + '</b></div>' +
       '<div><small>Sets</small><b>' + G.setsCleared + '/' + G.totalSets + '</b></div><div><small>XP earned</small><b>+' + xp + '</b></div>' +
-      '<div><small>Undos used</small><b>' + G.undosUsed + (G.undosUsed ? ' (+' + G.undosUsed * 20 + 's)' : '') + '</b></div><div><small>Hints used</small><b>' + G.hintsUsed + '/' + G.cfg.hints + '</b></div></div>';
+      '<div><small>Undos used</small><b>' + G.undosUsed + (G.undosUsed ? ' (+' + G.undosUsed * 20 + 's)' : '') + '</b></div>' +
+      (G.qTotal ? '<div><small>? answered</small><b>' + G.qRight + ' right · ' + G.qWrong + ' wrong</b></div>' : '<div><small>Hints used</small><b>' + G.hintsUsed + '/' + G.cfg.hints + '</b></div>') + '</div>';
     if (won) {
       sfx.win();
       openModal(bigIcon('trophy') + '<h2>Board cleared!</h2>' + grid + extra, [
-        { label: mode === 'practice' ? 'Play Easy' : ui.daily ? 'Play a normal round' : 'Next round', onClick: function () { startGame(mode === 'practice' ? 'easy' : mode); } },
+        { label: mode === 'practice' ? 'Play Easy' : ui.daily ? 'Play a normal round' : 'Next round', onClick: function () { startGame(mode === 'practice' ? 'easy' : ui.daily ? (isUnlocked(load().lastMode) ? load().lastMode : 'easy') : mode); } },
         { label: 'Home', cls: 'alt', onClick: function () { show('home'); } }
       ]);
     } else {
       sfx.lose();
-      openModal(bigIcon('tray', true) + '<h2>Tray full!</h2><p>7 cards in the tray without a complete set.</p>' + grid + extra, [
-        { label: 'Retry same board', onClick: function () { startGame(mode, { seed: G.seed, shape: G.shape, daily: ui.daily }); } },
-        { label: 'New board', cls: 'alt', onClick: function () { startGame(mode, ui.daily ? {} : ui.lastOpts); } },
+      var why = { tray: ['Tray full!', G.traySize + ' cards in the tray without a complete set.'], questions: ['Too many wrong answers', '4 wrong answers on ? blocks end the round.'],
+        time: ['Time\'s up!', 'The countdown ran out before the board was cleared.'],
+        boss: ['Boss not beaten', ui.boss ? 'It was <b>' + ui.boss.name + '</b>. Its groups: ' + (ui.boss.groups || []).map(function (g) { return Q.SERIES[g].name; }).join(', ') + '.' : ''] }[G.lossReason || 'tray'];
+      openModal(bigIcon('tray', true) + '<h2>' + why[0] + '</h2><p>' + why[1] + '</p>' + grid + extra, [
+        { label: 'Retry same board', onClick: function () { var o = {}; Object.keys(ui.opts).forEach(function (k) { o[k] = ui.opts[k]; }); o.seed = G.seed; o.shape = G.shape; startGame(mode, o); } },
+        { label: ui.daily ? 'Normal round' : 'New board', cls: 'alt', onClick: function () { startGame(ui.daily ? (isUnlocked(load().lastMode) ? load().lastMode : 'easy') : mode, ui.daily ? {} : ui.lastOpts); } },
         { label: 'Home', cls: 'alt', onClick: function () { show('home'); } }
       ]);
     }
@@ -771,6 +948,6 @@
     document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', function () { if (current === 'game' && G) { renderBoard(); renderTray(); } });
   }
   // expose for debugging / automated tests
-  window.ChemSheep = { start: startGame, state: function () { return G; }, show: show, elapsed: elapsed, store: load,
+  window.ChemSheep = { start: startGame, state: function () { return G; }, show: show, elapsed: elapsed, store: load, daily: dailyInfo, ui: ui,
                        reload: function () { store = null; return load(); } };
 })();

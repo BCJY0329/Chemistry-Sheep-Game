@@ -50,10 +50,11 @@
       </header>
     </div>
     <div class="g-stats">
-      <div class="stat"><small><i class="ico" data-ico="clock"></i>Time</small><b id="hud-time">0:00.0</b></div>
+      <div class="stat"><small><i class="ico" data-ico="clock"></i><span id="time-label">Time</span></small><b id="hud-time">0:00.0</b></div>
       <div class="stat"><small><i class="ico" data-ico="star"></i>Score</small><b id="hud-score">0</b></div>
       <div class="stat"><small><i class="ico" data-ico="tubes"></i>Sets</small><b id="hud-sets">0/0</b></div>
     </div>
+    <div class="hud-q hidden" id="hud-q"></div>
     <div class="g-board-wrap" id="board-wrap">
       <div class="g-board" id="board"></div>
     </div>
@@ -120,6 +121,9 @@
   <script src="js/engine.js"></script>
   <script src="js/deco.js"></script>
   <script src="js/scene.js"></script>
+  <script src="js/chem.js"></script>
+  <script src="js/molview.js"></script>
+  <script src="js/quiz.js"></script>
   <script src="js/ui.js"></script>
   <script>
     /* Installable app: offline support + "Install app" button (needs http/https, not a double-clicked file) */
